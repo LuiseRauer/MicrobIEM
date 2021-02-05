@@ -3,6 +3,12 @@ start_MicrobIEM <- function() {
   if("shiny" %in% rownames(installed.packages()) == FALSE) 
     install.packages("shiny")
   library(shiny)
+  if("shinyjs" %in% rownames(installed.packages()) == FALSE) 
+    install.packages("shinyjs")
+  library(shinyjs)
+  if("ggplot2" %in% rownames(installed.packages()) == FALSE) 
+    install.packages("ggplot2")
+  library(ggplot2)
   
   # load ui and server files
   source("MicrobIEM/ui.R"); 

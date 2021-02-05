@@ -1,34 +1,128 @@
+################################################################################
 #
-# This is the user-interface definition of a Shiny web application. You can
-# run the application by clicking 'Run App' above.
+# This is the user-interface definition of MicrobIEM 
 #
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-# Test comment
+################################################################################
 
-library(shiny)
 
-# Define UI for application that draws a histogram
+# ------------------------------------------------------------------------------
+# Definitions of re-used parameters
+# ------------------------------------------------------------------------------
+
+# Possible filter criteria for contamination filter
+neg_ratio_steps <- c("ignore" = -1, 
+                      "2" = 2,
+                      "1.5" = 1.5,
+                      "1" = 1,
+                      "0.5" = 0.5,
+                      "0.1" = 0.1)
+neg_span_steps <- c("ignore" = -1,
+                    "100 %" = 1, 
+                    "80 %" = 0.8, 
+                    "75 %" = 0.75, 
+                    "60 %" = 0.6, 
+                    "50 %" = 0.5, 
+                    "40 %" = 0.4, 
+                    "25 %" = 0.25, 
+                    "20 %" = 0.2, 
+                    "> 0 %" = 0) # Ist 0 nicht das gleiche wie ignore?!
+
+# ------------------------------------------------------------------------------
+# UI main function
+# ------------------------------------------------------------------------------
+
 ui <- fluidPage(
-
-    # Application title
-    titlePanel("Old Faithful Geyser Data"),
-
-    # Sidebar with a slider input for number of bins
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
-        ),
-
-        # Show a plot of the generated distribution
-        mainPanel(
-            plotOutput("distPlot")
-        )
+  # Application title
+  titlePanel("MicrobIEM"),
+  useShinyjs(), # Use shinyjs package 
+  
+  # Creating a sidebar
+  sidebarLayout(
+    sidebarPanel( # Sidebar
+      tabsetPanel( # Tabset
+        id = "tabset",
+        tabPanel( # First tab
+          title = "Filtering",
+          br(), # One empty line for aesthetics
+          
+          # -------------------------------------------------------------------
+          # All input fields for data and filtering options
+          # -------------------------------------------------------------------
+          
+          # Uploading the meta file
+          fileInput(inputId = "metafile", label = "Choose meta table",
+                    accept = c("text/csv", 
+                               "text/comma-separated-values,text/plain",
+                               ".csv")),
+          
+          # Uploading the feature table
+          fileInput(inputId = "featurefile", label = "Choose feature table",
+                    accept = c("text/csv", 
+                               "text/comma-separated-values,text/plain",
+                               ".csv")),
+          
+          # Start button for analysis
+          #actionButton(inputId = "start_button", label = "Start"),
+          
+          # Choose visualization type for filtering
+          selectInput(inputId = "visualization_type",
+                      label = "Visualization", 
+                      choices = c("Correlation of reads and features",
+                                  "Change in feature abundance",
+                                  "Contamination removal - NEG1",
+                                  "Contamination removal - NEG2",
+                                  "Reduction of reads",
+                                  "Reduction of features"),
+                      selected = "Correlation of reads and features"),
+          
+          # Choose parameters for sample filter
+          textInput(inputId = "req_reads_per_sample",
+                    label = "Minimum reads per sample",
+                    value = "100"),
+          
+          # Choose parameters for feature abundance filter
+          textInput(inputId = "req_reads_per_feature",
+                    label = "Minimum reads per feature",
+                    value = "1"),
+          
+          # Choose parameters for feature relative frequency filter
+          numericInput(inputId = "req_ratio_per_feature",
+                       label = "Minimum relative frequency per feature",
+                       value = 0, min = 0, max = 1, step = 0.0005),
+          
+          # Choose parameters for contamination filter - NEG1
+          h4(tags$b("Contaminant filter based on NEG1"), id = "header_neg1"), 
+          selectInput(inputId = "req_ratio_neg1",
+                      label = "Frequency mean ratio (NEG1/SAMPLE)",		
+                      choices = neg_ratio_steps),
+          selectInput(inputId = "req_span_neg1", 
+                      label = "Span threshold (NEG1)",
+                      choices = neg_span_steps),
+          
+          # Choose parameters for contamination filter - NEG2
+          h4(tags$b("Contaminant filter based on NEG2"), id = "header_neg2"), 
+          selectInput(inputId = "req_ratio_neg2",
+                      label = "Frequency mean ratio (NEG2/SAMPLE)",		
+                      choices = neg_ratio_steps),
+          selectInput(inputId = "req_span_neg2", 
+                      label = "Span threshold (NEG2)",
+                      choices = neg_span_steps),
+          
+          # -------------------------------------------------------------------
+          # All buttons for filtering data 
+          # -------------------------------------------------------------------
+          
+          actionButton(inputId = "update_button", label = "Update plot"),
+          actionButton(inputId = "back_button", label = "Back"),
+          actionButton(inputId = "next_button", label = "Next")
+          
+        ) # Close first tab
+      ) # Close tabset
+    ), # Close sidebar
+    
+    # Show a plot and a table in the main panel
+    mainPanel(
+      plotOutput("plot")
     )
+  )
 )
