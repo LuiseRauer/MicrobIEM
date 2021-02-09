@@ -6,7 +6,7 @@
 
 
 # ------------------------------------------------------------------------------
-# Definitions of re-used parameters
+# Define re-used parameters
 # ------------------------------------------------------------------------------
 
 # Possible filter criteria for contamination filter
@@ -26,6 +26,9 @@ neg_span_steps <- c("ignore" = -1,
                     "25 %" = 0.25, 
                     "20 %" = 0.2, 
                     "> 0 %" = 0) # Ist 0 nicht das gleiche wie ignore?!
+
+#	Allow upload of files with max. size of 50 Mb
+options(shiny.maxRequestSize = 50*1024^2)
 
 # ------------------------------------------------------------------------------
 # UI main function
@@ -78,7 +81,7 @@ ui <- fluidPage(
           # Choose parameters for sample filter
           textInput(inputId = "req_reads_per_sample",
                     label = "Minimum reads per sample",
-                    value = "100"),
+                    value = "1"),
           
           # Choose parameters for feature abundance filter
           textInput(inputId = "req_reads_per_feature",
