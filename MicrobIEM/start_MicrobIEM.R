@@ -9,6 +9,9 @@ start_MicrobIEM <- function() {
   if("ggplot2" %in% rownames(installed.packages()) == FALSE) 
     install.packages("ggplot2")
   library(ggplot2)
+  if("vegan" %in% rownames(installed.packages()) == FALSE) 
+    install.packages("vegan")
+  library(vegan)
   
   # load ui and server files
   source("MicrobIEM/ui.R"); 
