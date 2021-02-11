@@ -51,7 +51,6 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   # Read and check the metafile
   # ----------------------------------------------------------------------------
-  
   observeEvent(input$metafile, {
     # Check correct file extension
     if (!(tools::file_ext(input$metafile$datapath) %in% c("csv", "txt"))) {
@@ -130,13 +129,15 @@ server <- function(input, output, session) {
       if (is.na(reactives$output_dir)) {
         reactives$output_dir <- gsub(":", "_", format(Sys.time(), 
                                                       "%Y_%m_%d_%a_%X"))
-        if (!dir.exists(paste0(reactives$output_dir, "/output"))){
+        if (!dir.exists(reactives$output_dir)){
           dir.create(paste0(reactives$output_dir, "/output"), recursive = TRUE)
+          dir.create(paste0(reactives$output_dir, "/interim"), recursive = TRUE)
           print(paste0("INFO|server|output dir created", Sys.time()))
         } else {
           print(paste0("INFO|server|output dir not created", Sys.time()))
         }
       }
+      
       # ------------------------------------------------------------------------
       # Prepare the data for filtering 
       # ------------------------------------------------------------------------
@@ -309,37 +310,38 @@ server <- function(input, output, session) {
       neg2_span <- 
         apply(reactives$featuredata_neg2, 1, function(x) sum(x > 0)/length(x))
       # Merge the different pieces of information for each feature
-      filter_basis <- data.frame(neg1_mean = neg1_mean[names(neg1_mean)],
-                                 neg1_span = neg1_span[names(neg1_span)],
-                                 neg2_mean = neg2_mean[names(neg2_mean)],
-                                 neg2_span = neg2_span[names(neg2_span)])
-      filter_basis <- merge(filter_basis, sample_mean, by = 0, all = TRUE)
-      rownames(filter_basis) <- filter_basis[, "Row.names"]
-      filter_basis["Row.names"] <- NULL
+      reactives$filter_basis <- data.frame(neg1_mean = neg1_mean[names(neg1_mean)],
+                                           neg1_span = neg1_span[names(neg1_span)],
+                                           neg2_mean = neg2_mean[names(neg2_mean)],
+                                           neg2_span = neg2_span[names(neg2_span)])
+      reactives$filter_basis <- 
+        merge(reactives$filter_basis, sample_mean, by = 0, all = TRUE)
+      rownames(reactives$filter_basis) <- reactives$filter_basis[, "Row.names"]
+      reactives$filter_basis["Row.names"] <- NULL
       # Calculate the ratios
-      filter_basis["ratio_neg1"] <- 
-        filter_basis$neg1_mean / filter_basis$sample_mean
-      filter_basis["ratio_neg2"] <-
-        filter_basis$neg2_mean / filter_basis$sample_mean
+      reactives$filter_basis["ratio_neg1"] <- 
+        reactives$filter_basis$neg1_mean / reactives$filter_basis$sample_mean
+      reactives$filter_basis["ratio_neg2"] <-
+        reactives$filter_basis$neg2_mean / reactives$filter_basis$sample_mean
       # Apply filter criteria and return Sample IDs that should be removed
       if(as.numeric(input$req_ratio_neg1) == Inf && 
          as.numeric(input$req_span_neg1) != 0.0001) {
-        feature_removed_neg1 <- filter_basis %>%
+        feature_removed_neg1 <- reactives$filter_basis %>%
           filter(neg1_span >= as.numeric(input$req_span_neg1)) %>%
           rownames()
       } else {
-        feature_removed_neg1 <- filter_basis %>%
+        feature_removed_neg1 <- reactives$filter_basis %>%
           filter(neg1_span >= as.numeric(input$req_span_neg1)) %>%
           filter(ratio_neg1 > as.numeric(input$req_ratio_neg1)) %>%
           rownames()
       }
       if(as.numeric(input$req_ratio_neg2) == Inf && 
          as.numeric(input$req_span_neg2) != 0.0001) {
-        feature_removed_neg2 <- filter_basis %>%
+        feature_removed_neg2 <- reactives$filter_basis %>%
           filter(neg2_span >= as.numeric(input$req_span_neg2)) %>%
           rownames()
       } else {
-        feature_removed_neg2 <- filter_basis %>%
+        feature_removed_neg2 <- reactives$filter_basis %>%
           filter(neg2_span >= as.numeric(input$req_span_neg2)) %>%
           filter(ratio_neg2 > as.numeric(input$req_ratio_neg2)) %>%
           rownames()
@@ -361,7 +363,97 @@ server <- function(input, output, session) {
       reactives$metadata_current <- reactives$metadata_5
     }
     
+    # --------------------------------------------------------------------------
+    # Step 6: save final files
+    # --------------------------------------------------------------------------
+    if(reactives$step_var == 6) {
+      # Save final featuretable with absolute counts
+      featuredata_current <- merge(reactives$featuredata_current,
+                                   reactives$featuredata_taxonomy, 
+                                   by = 0, all.x = TRUE)
+      colnames(featuredata_current)[1] <- "OTU_ID"
+      write.table(
+        featuredata_current, 
+        file = paste0(reactives$output_dir, "/output/Featuretable_final.txt"),
+        row.names = FALSE, sep = "\t", quote = FALSE)
+      # Save final featuretable with relative abundance
+      featuredata_current_rel <- 
+        t(decostand(t(reactives$featuredata_current), method = "total"))
+      featuredata_current_rel <- merge(featuredata_current_rel,
+                                       reactives$featuredata_taxonomy, 
+                                       by = 0, all.x = TRUE)
+      colnames(featuredata_current_rel)[1] <- "OTU_ID"
+      write.table(
+        featuredata_current_rel, 
+        file = paste0(reactives$output_dir, "/output/Featuretable_final_frequency.txt"),
+        row.names = FALSE, sep = "\t", quote = FALSE)
+      # Save final metatable
+      write.table(
+        data.frame(Sample_ID = rownames(reactives$metadata_current), 
+                   reactives$metadata_current), 
+        file = paste0(reactives$output_dir, "/output/Metatable_final.txt"),
+        row.names = FALSE, sep = "\t", quote = FALSE)
+      # Save contamination filter basis
+      write.table(
+        data.frame(OTU_ID = rownames(reactives$filter_basis), 
+                   reactives$filter_basis), 
+        file = paste0(reactives$output_dir, "/interim/Contamination_filter_basis.txt"),
+        row.names = FALSE, sep = "\t", quote = FALSE)
+      # Save reduction of reads per OTU by filter step
+      Reduction_per_feature <- 
+        Reduce(function(x, y) merge(x = x, y = y, by.x = "Row.names", by.y = 0, 
+                                    all.x = TRUE), 
+               list(data.frame(Row.names = names(rowSums(reactives$featuredata)),
+                               Original = rowSums(reactives$featuredata)), 
+                    data.frame(Step1 = rowSums(reactives$featuredata_1)), 
+                    data.frame(Step2 = rowSums(reactives$featuredata_2)),
+                    data.frame(Step3 = rowSums(reactives$featuredata_3)),
+                    data.frame(Step4 = rowSums(reactives$featuredata_4)),
+                    data.frame(Step5 = rowSums(reactives$featuredata_5))))
+      colnames(Reduction_per_feature)[1] <- "OTU_ID"
+      write.table(
+        Reduction_per_feature, 
+        file = paste0(reactives$output_dir, "/interim/Read_reduction_per_feature.txt"),
+        row.names = FALSE, sep = "\t", quote = FALSE)
+      # Save reduction of reads per species by filter step 
+      Reduction_per_taxonomy <- 
+        merge(Reduction_per_feature, reactives$featuredata_taxonomy,
+              by.x = "OTU_ID", by.y = 0, all = TRUE)
+      Reduction_per_taxonomy <- Reduction_per_taxonomy %>% 
+        group_by(Taxonomy) %>%
+        summarise_at(vars(Original, Step1, Step2, Step3, Step4, Step5),
+                     sum, na.rm = TRUE)
+      write.table(
+        Reduction_per_taxonomy, 
+        file = paste0(reactives$output_dir, "/interim/Read_reduction_per_taxonomy.txt"),
+        row.names = FALSE, sep = "\t", quote = FALSE)
+      # Save reduction of reads per metatable category by filter step
+      
+      # ------------------------------------------------------------------------
+      # Create overview file
+      # ------------------------------------------------------------------------
+      writeLines(paste0(c(
+        "MicrobIEM - quality control and analysis tool for microbiome data",
+        "-----------------------------------------------------------------",
+        "", "Input meta table:", input$metafile$name,
+        "", "Input feature table:", input$featurefile$name,
+        "", "Minimum reads per sample:", input$req_reads_per_sample,
+        "", "Minimum reads per feature:", input$req_reads_per_feature,
+        "", "Minimum relative frequency per feature:", input$req_ratio_per_feature,
+        "", "Frequency mean ratio (NEG1 by SAMPLE):", 
+        names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg1]),
+        "", "Span threshold (NEG1):", 
+        names(neg_span_steps[neg_span_steps == input$req_span_neg1]),
+        "", "Frequency mean ratio (NEG2 by SAMPLE):", 
+        names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg2]),
+        "", "Span threshold (NEG2)", 
+        names(neg_span_steps[neg_span_steps == input$req_span_neg2])), 
+        sep = " "), paste0(reactives$output_dir, "/output/Filter_criteria.txt"))
+    }
+       
+    # ------------------------------------------------------------------------
     # Provide information for visualisation and build filtering plots
+    # ------------------------------------------------------------------------
     if(input$visualization_type == "Correlation of reads and features") {
       data_to_plot <- data.frame(
         reads = colSums(reactives$featuredata_current),
@@ -394,8 +486,8 @@ server <- function(input, output, session) {
       } else {
         if(input$visualization_type == "Contamination removal - NEG1") {
           contamination_plot <- 
-            ggplot(data = filter_basis, aes(x = ratio_neg1, y = neg1_span,
-                                            size = sample_mean)) +
+            ggplot(data = reactives$filter_basis, 
+                   aes(x = ratio_neg1, y = neg1_span, size = sample_mean)) +
             geom_point() +
             scale_x_log10()
           if(as.numeric(input$req_span_neg1) != 0.0001) {
@@ -415,8 +507,8 @@ server <- function(input, output, session) {
         }
         if(input$visualization_type == "Contamination removal - NEG2") {
           output$plot <- renderPlot({
-            ggplot(data = filter_basis, aes(x = ratio_neg2, y = neg2_span,
-                                            size = sample_mean)) +
+            ggplot(data = reactives$filter_basis, 
+                   aes(x = ratio_neg2, y = neg2_span, size = sample_mean)) +
               geom_point() +
               scale_x_log10()
           })
@@ -636,9 +728,25 @@ server <- function(input, output, session) {
           }) # Close lapply function
         )
       )
+      updateTabsetPanel(session, "tabset", selected = "Alpha diversity")
     }    
   }
   
+  observeEvent(input$alpha_analysis, {
+    print(paste0("INFO|server::alpha_diversity",Sys.time()))
+    
+  })
+
+  observeEvent(input$beta_analysis, {
+    print(paste0("INFO|server::beta_diversity",Sys.time()))
+    
+  })
+  
+  observeEvent(input$tax_analysis, {
+    print(paste0("INFO|server::taxnonomy",Sys.time()))
+    
+  })
+
   #output$plot <- renderPlot({
   #  set.seed(1)  
   #  plot(rnorm(10, 0, 2), rnorm(10, as.numeric(input$req_reads_per_sample), 
