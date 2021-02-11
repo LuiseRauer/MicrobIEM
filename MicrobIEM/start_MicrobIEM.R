@@ -12,6 +12,12 @@ start_MicrobIEM <- function() {
   if("vegan" %in% rownames(installed.packages()) == FALSE) 
     install.packages("vegan")
   library(vegan)
+  if("dplyr" %in% rownames(installed.packages()) == FALSE) 
+    install.packages("dplyr")
+  library(dplyr)
+  if("shinyWidgets" %in% rownames(installed.packages()) == FALSE) 
+    install.packages("shinyWidgets")
+  library(shinyWidgets)
   
   # load ui and server files
   source("MicrobIEM/ui.R"); 
