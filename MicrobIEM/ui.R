@@ -10,13 +10,13 @@
 # ------------------------------------------------------------------------------
 
 # Possible filter criteria for contamination filter
-neg_ratio_steps <- c("ignore" = -1, 
+neg_ratio_steps <- c("ignore" = Inf, 
                       "2" = 2,
                       "1.5" = 1.5,
                       "1" = 1,
                       "0.5" = 0.5,
                       "0.1" = 0.1)
-neg_span_steps <- c("ignore" = -1,
+neg_span_steps <- c("ignore" = 0.0001,
                     "100 %" = 1, 
                     "80 %" = 0.8, 
                     "75 %" = 0.75, 
@@ -24,8 +24,7 @@ neg_span_steps <- c("ignore" = -1,
                     "50 %" = 0.5, 
                     "40 %" = 0.4, 
                     "25 %" = 0.25, 
-                    "20 %" = 0.2, 
-                    "> 0 %" = 0) # Ist 0 nicht das gleiche wie ignore?!
+                    "20 %" = 0.2)
 
 #	Allow upload of files with max. size of 50 Mb
 options(shiny.maxRequestSize = 50*1024^2)
@@ -74,8 +73,7 @@ ui <- fluidPage(
                                   "Change in feature abundance",
                                   "Contamination removal - NEG1",
                                   "Contamination removal - NEG2",
-                                  "Reduction of reads",
-                                  "Reduction of features"),
+                                  "Reduction of total reads"),
                       selected = "Correlation of reads and features"),
           
           # Choose parameters for sample filter
@@ -95,6 +93,7 @@ ui <- fluidPage(
           
           # Choose parameters for contamination filter - NEG1
           h4(tags$b("Contaminant filter based on NEG1"), id = "header_neg1"), 
+          tags$div(id = "placeholder"), # NEWLINE
           selectInput(inputId = "req_ratio_neg1",
                       label = "Frequency mean ratio (NEG1/SAMPLE)",		
                       choices = neg_ratio_steps),
