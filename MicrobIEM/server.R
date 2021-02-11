@@ -19,15 +19,19 @@ server <- function(input, output, session) {
   # Define reactive values (count steps etc.)
   reactives <- reactiveValues(step_var = 1, output_dir = NA,
                               metadata = NA, featuredata = NA,
+                              featuredata_taxonomy = NA,
+                              featuredata_neg1 = NA, featuredata_neg2 = NA,
                               metadata_current = NA, featuredata_current = NA,
                               metadata_1 = NA, featuredata_1 = NA,
                               metadata_2 = NA, featuredata_2 = NA,
                               metadata_3 = NA, featuredata_3 = NA,
+                              metadata_4 = NA, featuredata_4 = NA,
+                              metadata_5 = NA, featuredata_5 = NA,
                               req_reads_per_sample_old = "1", 
                               req_reads_per_feature_old = "1",
                               req_ratio_per_feature_old = 0,
-                              req_ratio_neg1_old = -1, req_span_neg1_old = -1,
-                              req_ratio_neg2_old = -1, req_span_neg2_old = -1)
+                              req_ratio_neg1_old = Inf, req_span_neg1_old = 0.0001,
+                              req_ratio_neg2_old = Inf, req_span_neg2_old = 0.0001)
   
   # Hide buttons and input fields in the beginning
   shinyjs::hide("visualization_type")
@@ -122,13 +126,6 @@ server <- function(input, output, session) {
       showModal(modalDialog(
         title = "Success2", "Meta table and feature table were uploaded. 
         Please note that filtering can take several minutes."))
-      # Replace NA values in the metafile
-      if (sum(is.na(reactives$metadata)) > 0) {
-        reactives$metadata[is.na(reactives$metadata)] <- "n.a." 
-        print(c("INFO|server|replaced ", sum(is.na(reactives$metadata)), 
-                " in columns: ", 
-                colnames(reactives$metadata)[colSums(is.na(reactives$metadata)) > 0]))
-      }
       # Create output directory
       if (is.na(reactives$output_dir)) {
         reactives$output_dir <- gsub(":", "_", format(Sys.time(), 
@@ -140,24 +137,47 @@ server <- function(input, output, session) {
           print(paste0("INFO|server|output dir not created", Sys.time()))
         }
       }
-      # Save original files in output directory as ..._0?
-      
+      # ------------------------------------------------------------------------
+      # Prepare the data for filtering 
+      # ------------------------------------------------------------------------
+      # Replace NA values in the metafile
+      if (sum(is.na(reactives$metadata)) > 0) {
+        reactives$metadata[is.na(reactives$metadata)] <- "n.a." 
+        print(c("INFO|server|replaced ", sum(is.na(reactives$metadata)), 
+                " in columns: ", 
+                colnames(reactives$metadata)[colSums(is.na(reactives$metadata)) > 0]))
+      }
       # Define rownames of featuredata and metadata
       rownames(reactives$metadata) <- reactives$metadata[, "Sample_ID"]
       rownames(reactives$featuredata) <- reactives$featuredata[, "OTU_ID"]
-      # Remove controls from the data set
-      # Define samples without controls
-      real_sample_IDs <- 
+      # Remove OTU_ID column and separate taxonomy columns in the feature file
+      reactives$featuredata_taxonomy <- data.frame(
+        Taxonomy = reactives$featuredata[, "Taxonomy", drop = FALSE])
+      reactives$featuredata[, c("OTU_ID", "Taxonomy")] <- NULL
+      # Subset real samples
+      ID_SAMPLE <- 
         reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
                                    sample_types_allowed[1]), "Sample_ID"]
-      # Filter featuredata and metadata
-      reactives$featuredata_1 <- 
-        reactives$featuredata[, c("OTU_ID", real_sample_IDs, "Taxonomy")]
+      reactives$featuredata_1 <- reactives$featuredata[, ID_SAMPLE]
       reactives$metadata_1 <- 
-        reactives$metadata[reactives$metadata$Sample_ID %in% real_sample_IDs, ]
-      # Proceed one step - set step var to 2
+        reactives$metadata[reactives$metadata$Sample_ID %in% ID_SAMPLE, ]
+      # Subset NEG1 control samples
+      # ADD CHECK IF THERE ARE NEG1 SAMPLES!
+      ID_NEG1 <- 
+        reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
+                                   sample_types_allowed[4]), "Sample_ID"]
+      reactives$featuredata_neg1 <- reactives$featuredata[, ID_NEG1]
+      # Subset NEG2 control samples 
+      # ADD CHECK IF THERE ARE NEG2 SAMPLES!
+      ID_NEG2 <- 
+        reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
+                                   sample_types_allowed[5]), "Sample_ID"]
+      reactives$featuredata_neg2 <- reactives$featuredata[, ID_NEG2]
+      
+      # ------------------------------------------------------------------------
+      # Proceed one step and start the filtering 
+      # ------------------------------------------------------------------------
       reactives$step_var <- 2
-      # Start filtering the data set
       filter_feature_table(input$req_reads_per_sample,
                            input$req_reads_per_feature,
                            input$req_ratio_per_feature,
@@ -196,17 +216,17 @@ server <- function(input, output, session) {
        reactives$req_reads_per_sample_old != input$req_reads_per_sample) {
       print("filtering_2 branch started")
       # Define samples to keep
-      sample_read_sums <- colSums(
-        reactives$featuredata_1[, 2:(ncol(reactives$featuredata_1)-1)])
+      print(colnames(reactives$featuredata_1))
+      sample_read_sums <- colSums(reactives$featuredata_1)
       samples_to_keep <- names(
         sample_read_sums[sample_read_sums >= as.numeric(req_reads_per_sample)])
       # Filter featuredata and metadata
-      reactives$featuredata_2 <- 
-        reactives$featuredata_1[, c("OTU_ID", samples_to_keep, "Taxonomy")]
+      reactives$featuredata_2 <- reactives$featuredata_1[, samples_to_keep]
       reactives$metadata_2 <- 
         reactives$metadata_1[reactives$metadata_1$Sample_ID %in% samples_to_keep, ]
       reactives$featuredata_current <- reactives$featuredata_2
       reactives$metadata_current <- reactives$metadata_2
+      print(colnames(reactives$featuredata_2))
     }
     
     # --------------------------------------------------------------------------
@@ -215,21 +235,18 @@ server <- function(input, output, session) {
     if(reactives$step_var == 3 || reactives$req_reads_per_feature_old != input$req_reads_per_feature) {
       print("filtering_3 branch started")
       # Define feature to keep
-      feature_read_sums <- rowSums(
-        reactives$featuredata_2[, 2:(ncol(reactives$featuredata_2)-1)])
+      feature_read_sums <- rowSums(reactives$featuredata_2)
       feature_to_keep_abund <- names(
         feature_read_sums[feature_read_sums >= as.numeric(req_reads_per_feature)])
       # Filter featuredata and metadata
       reactives$featuredata_3 <- 
         reactives$featuredata_2[feature_to_keep_abund, ]
       # Remove empty samples:
-      sample_read_sums <- colSums(
-        reactives$featuredata_3[, 2:(ncol(reactives$featuredata_3)-1)])
-      print(sample_read_sums)
+      sample_read_sums <- colSums(reactives$featuredata_3)
+      print(sample_read_sums) #
       samples_to_keep <- names(sample_read_sums[sample_read_sums > 0])
-      print(samples_to_keep)
-      reactives$featuredata_3 <- 
-        reactives$featuredata_3[, c("OTU_ID", samples_to_keep, "Taxonomy")]
+      print(samples_to_keep) #
+      reactives$featuredata_3 <- reactives$featuredata_3[, samples_to_keep]
       reactives$metadata_3 <- 
         reactives$metadata_2[reactives$metadata_2$Sample_ID %in% 
                                colnames(reactives$featuredata_3), ]
@@ -245,24 +262,20 @@ server <- function(input, output, session) {
       print("filtering_4 branch started")
       # Convert feature table to frequencies
       featuredata_3_freq <- 
-        t(decostand(t(reactives$featuredata_3[, 2:(ncol(reactives$featuredata_3)-1)]), 
-                    method = "total"))
+        t(decostand(t(reactives$featuredata_3), method = "total"))
       # Define feature to keep
-      feature_read_freqs <- apply(
-        featuredata_3_freq[, 2:(ncol(featuredata_3_freq)-1)], 1, max)
+      feature_read_freqs <- apply(featuredata_3_freq, 1, max)
       feature_to_keep_freq <- names(
         feature_read_freqs[feature_read_freqs >= as.numeric(req_ratio_per_feature)])
       # Filter featuredata and metadata
       reactives$featuredata_4 <- 
         reactives$featuredata_3[feature_to_keep_freq, ]
       # Remove empty samples:
-      sample_read_sums <- colSums(
-        reactives$featuredata_4[, 2:(ncol(reactives$featuredata_4)-1)])
-      print(sample_read_sums)
+      sample_read_sums <- colSums(reactives$featuredata_4)
+      print(sample_read_sums) #
       samples_to_keep <- names(sample_read_sums[sample_read_sums > 0])
-      print(samples_to_keep)
-      reactives$featuredata_4 <- 
-        reactives$featuredata_4[, c("OTU_ID", samples_to_keep, "Taxonomy")]
+      print(samples_to_keep) #
+      reactives$featuredata_4 <- reactives$featuredata_4[, samples_to_keep]
       reactives$metadata_4 <- 
         reactives$metadata_3[reactives$metadata_3$Sample_ID %in% 
                                colnames(reactives$featuredata_4), ]
@@ -279,57 +292,160 @@ server <- function(input, output, session) {
        reactives$req_ratio_neg2_old != input$req_ratio_neg2 ||
        reactives$req_span_neg2_old != input$req_span_neg2) {
       print("filtering_5 branch started")
-      # Convert feature table to frequencies
+      # Convert current filtered feature table to frequencies
       featuredata_4_freq <- 
-        t(decostand(t(reactives$featuredata_4[, 2:(ncol(reactives$featuredata_4)-1)]), 
-                    method = "total"))
-      # Define types of controls (again :/)
-      sample_IDs_neg1 <- 
-        reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
-                                   sample_types_allowed[4]), "Sample_ID"]
-      sample_IDs_neg2 <- 
-        reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
-                                   sample_types_allowed[5]), "Sample_ID"]
-      real_sample_IDs <- 
-        reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
-                                   sample_types_allowed[1]), "Sample_ID"]
-      # Define mean values
-      sample_mean <- apply(
-        featuredata_4_freq[, colnames(featuredata_4_freq) %in% real_sample_IDs], 
-        1, mean)
-      # NEG1:
-      neg1_data <-
-        reactives$featuredata[, colnames(reactives$featuredata) %in% sample_IDs_neg1]
-      neg1_data_rel <- 
-        t(decostand(t(neg1_data), method = "total"))
-      neg1_mean <- apply(neg1_data_rel, 1, mean)
-      neg1_span <- apply(neg1_data, 1, function(x) sum(x > 0)/length(x))
-      # NEG2:
-      neg2_data <-
-        reactives$featuredata[, colnames(reactives$featuredata) %in% sample_IDs_neg2]
-      neg2_data_rel <- 
-        t(decostand(t(neg2_data), method = "total"))
-      neg2_mean <- apply(neg2_data_rel, 1, mean)
-      neg2_span <- apply(neg2_data, 1, function(x) sum(x > 0)/length(x))
-      # Actual filtering
-      # Save mean and span values in data frame
-      # Calculate mean ratios
-      # Apply filter criteria, return Sample IDs that should be kept
+        t(decostand(t(reactives$featuredata_4), method = "total"))
+      # Calculate sample mean per feature
+      sample_mean <- data.frame(sample_mean = rowMeans(featuredata_4_freq))
+      # Transform neg1-data to frequencies and calculate mean/span per feature
+      # ADD CHECKS FOR NEG1/NEG2 IF THEY EXIST!
+      neg1_mean <- 
+        rowMeans(t(decostand(t(reactives$featuredata_neg1), method = "total")))
+      neg1_span <- 
+        apply(reactives$featuredata_neg1, 1, function(x) sum(x > 0)/length(x))
+      # Transform neg2-data to frequencies and calculate mean/span per feature
+      neg2_mean <-  
+        rowMeans(t(decostand(t(reactives$featuredata_neg2), method = "total")))
+      neg2_span <- 
+        apply(reactives$featuredata_neg2, 1, function(x) sum(x > 0)/length(x))
+      # Merge the different pieces of information for each feature
+      filter_basis <- data.frame(neg1_mean = neg1_mean[names(neg1_mean)],
+                                 neg1_span = neg1_span[names(neg1_span)],
+                                 neg2_mean = neg2_mean[names(neg2_mean)],
+                                 neg2_span = neg2_span[names(neg2_span)])
+      filter_basis <- merge(filter_basis, sample_mean, by = 0, all = TRUE)
+      rownames(filter_basis) <- filter_basis[, "Row.names"]
+      filter_basis["Row.names"] <- NULL
+      # Calculate the ratios
+      filter_basis["ratio_neg1"] <- 
+        filter_basis$neg1_mean / filter_basis$sample_mean
+      filter_basis["ratio_neg2"] <-
+        filter_basis$neg2_mean / filter_basis$sample_mean
+      # Apply filter criteria and return Sample IDs that should be removed
+      if(as.numeric(input$req_ratio_neg1) == Inf && 
+         as.numeric(input$req_span_neg1) != 0.0001) {
+        feature_removed_neg1 <- filter_basis %>%
+          filter(neg1_span >= as.numeric(input$req_span_neg1)) %>%
+          rownames()
+      } else {
+        feature_removed_neg1 <- filter_basis %>%
+          filter(neg1_span >= as.numeric(input$req_span_neg1)) %>%
+          filter(ratio_neg1 > as.numeric(input$req_ratio_neg1)) %>%
+          rownames()
+      }
+      if(as.numeric(input$req_ratio_neg2) == Inf && 
+         as.numeric(input$req_span_neg2) != 0.0001) {
+        feature_removed_neg2 <- filter_basis %>%
+          filter(neg2_span >= as.numeric(input$req_span_neg2)) %>%
+          rownames()
+      } else {
+        feature_removed_neg2 <- filter_basis %>%
+          filter(neg2_span >= as.numeric(input$req_span_neg2)) %>%
+          filter(ratio_neg2 > as.numeric(input$req_ratio_neg2)) %>%
+          rownames()
+      }
+      # Filter featuredata and metadata
+      reactives$featuredata_5 <- 
+        reactives$featuredata_4[!rownames(reactives$featuredata_4) %in% unique(
+          c(feature_removed_neg1, feature_removed_neg2)), ]
+      # Remove empty samples
+      sample_read_sums <- colSums(reactives$featuredata_5)
+      print(sample_read_sums) #
+      samples_to_keep <- names(sample_read_sums[sample_read_sums > 0])
+      print(samples_to_keep) #
+      reactives$featuredata_5 <- reactives$featuredata_5[, samples_to_keep]
+      reactives$metadata_5 <- 
+        reactives$metadata_4[reactives$metadata_4$Sample_ID %in% 
+                               colnames(reactives$featuredata_5), ]
+      reactives$featuredata_current <- reactives$featuredata_5
+      reactives$metadata_current <- reactives$metadata_5
     }
     
-    # provide information for visualisation
+    # Provide information for visualisation and build filtering plots
     if(input$visualization_type == "Correlation of reads and features") {
       data_to_plot <- data.frame(
-        reads = colSums(reactives$featuredata_current[, 2:(
-          ncol(reactives$featuredata_current)-1)]),
-        features = apply(reactives$featuredata_current[, 2:(
-          ncol(reactives$featuredata_current)-1)], 2, function(x) sum(x > 0)))
+        reads = colSums(reactives$featuredata_current),
+        features = apply(reactives$featuredata_current, 2, function(x) sum(x > 0)))
       print(str(data_to_plot))
       output$plot <- renderPlot({
         ggplot(data = data_to_plot, aes(x = reads, y = features)) +
           geom_point()
       }) 
     }
+    if(input$visualization_type == "Change in feature abundance") {
+      data_to_plot <- data.frame(
+        reads_before = rowSums(reactives$featuredata_1))
+      data_to_plot <- merge(data_to_plot, data.frame(
+        reads_now = rowSums(reactives$featuredata_current)), by = 0, all = TRUE)
+      data_to_plot[is.na(data_to_plot)] <- 0
+      print(str(data_to_plot))
+      output$plot <- renderPlot({
+        ggplot(data = data_to_plot, aes(x = reads_before, y = reads_now)) +
+          geom_point()
+      }) 
+    }
+    if(input$visualization_type == "Contamination removal - NEG1" ||
+       input$visualization_type == "Contamination removal - NEG2") {
+      if(reactives$step_var != 5) {
+        showModal(modalDialog(title = "Error", "Please wait for contaminant
+                              removal analysis."))
+        updateSelectInput(session, inputId = "visualization_type",
+                          selected = "Correlation of reads and features")
+      } else {
+        if(input$visualization_type == "Contamination removal - NEG1") {
+          contamination_plot <- 
+            ggplot(data = filter_basis, aes(x = ratio_neg1, y = neg1_span,
+                                            size = sample_mean)) +
+            geom_point() +
+            scale_x_log10()
+          if(as.numeric(input$req_span_neg1) != 0.0001) {
+            contamination_plot <- contamination_plot +
+              geom_hline(aes(alpha = "Span_threshold", 
+                              yintercept = as.numeric(input$req_span_neg1))) +
+              scale_alpha_manual(values = 1)
+          }
+          if(as.numeric(input$req_ratio_neg1) != Inf) {
+            contamination_plot <- contamination_plot +
+              geom_vline(aes(linetype = "Ratio_threshold",
+                             xintercept = as.numeric(input$req_ratio_neg1)))
+          }
+          output$plot <- renderPlot({
+            contamination_plot
+          })
+        }
+        if(input$visualization_type == "Contamination removal - NEG2") {
+          output$plot <- renderPlot({
+            ggplot(data = filter_basis, aes(x = ratio_neg2, y = neg2_span,
+                                            size = sample_mean)) +
+              geom_point() +
+              scale_x_log10()
+          })
+        }
+      }
+    }
+    if(input$visualization_type == "Reduction of total reads") {
+      sum_of_reads_function <- function(x) {
+        if(is.na(x)) {return(NA)} else {return(sum(colSums(x)))}
+      }
+      data_to_plot <- data.frame(
+        step = c("0 - original", "1 - without controls", "2 - sample filter",
+                 "3 - feature abundance filter", "4 - feature frequency filter",
+                 "5 - contamination filter"),
+        sum_of_reads = c(sum_of_reads_function(reactives$featuredata),
+                         sum_of_reads_function(reactives$featuredata_1),
+                         sum_of_reads_function(reactives$featuredata_2),
+                         sum_of_reads_function(reactives$featuredata_3),
+                         sum_of_reads_function(reactives$featuredata_4),
+                         sum_of_reads_function(reactives$featuredata_5)))
+      print(str(data_to_plot))
+      output$plot <- renderPlot({
+        ggplot(data = data_to_plot, aes(x = step, y = sum_of_reads)) +
+          geom_bar(stat = "identity")
+      }) 
+    }
+    print("ROWNAMES")
+    print(rownames(reactives$featuredata_current))
+    print(rownames(reactives$metadata_current))
     # Save current input:
     reactives$req_reads_per_sample_old <- input$req_reads_per_sample
     reactives$req_reads_per_feature_old <- input$req_reads_per_feature
@@ -423,6 +539,7 @@ server <- function(input, output, session) {
       shinyjs::disable("req_reads_per_feature")
       shinyjs::show("req_ratio_per_feature")
       shinyjs::enable("req_ratio_per_feature")
+      shinyjs::hide("placeholder") # NEWLINE
       shinyjs::hide("header_neg1") 
       shinyjs::hide("req_ratio_neg1")
       shinyjs::hide("req_span_neg1")
@@ -436,6 +553,13 @@ server <- function(input, output, session) {
       shinyjs::disable("req_reads_per_sample") 
       shinyjs::disable("req_reads_per_feature")
       shinyjs::disable("req_ratio_per_feature")
+      # NEWLINE :
+      shinyjs::show("placeholder") # NEWLINE
+      insertUI(selector = "#placeholder",
+               ui = selectInput(inputId = "test_ID",
+                                label = "Some value",		
+                                choices = seq(0:ncol(reactives$featuredata_neg1))))
+      
       shinyjs::show("header_neg1") 
       shinyjs::show("req_ratio_neg1")
       shinyjs::show("req_span_neg1")
@@ -443,6 +567,76 @@ server <- function(input, output, session) {
       shinyjs::show("req_ratio_neg2")
       shinyjs::show("req_span_neg2")
     }
+    if(reactives$step_var == 6) {
+      appendTab(
+        inputId = "tabset",
+        tabPanel(
+          title = "Alpha diversity",
+          br(),
+          selectInput(inputId = "metavar_alpha", 
+                      label = "Metainformation variable",
+                      choices = colnames(reactives$metadata_current)),
+          selectInput(inputId = "subvar_alpha",
+                      label = "Variable for subgroup analysis",
+                      choices = c("ignore", colnames(reactives$metadata_current))),
+          radioButtons(inputId = "scaling", 
+                       label = "Y axis scaling",
+                       choices = c("Z-normalized values", "Raw values")),
+          actionButton(inputId = "alpha_analysis", 
+                       label = "Update plot")
+        )
+      )
+      appendTab(
+        inputId = "tabset",
+        tabPanel(
+          title = "Beta diversity",
+          br(),
+          selectInput(inputId = "metavar_beta", 
+                      label = "Metainformation variable",
+                      choices = colnames(reactives$metadata_current)),
+          radioButtons(inputId = "plot_beta", 
+                       label = "Visualization type", 
+                       choices = c(
+                         "Principal coordinates analysis (PCoA)" = "beta_pcoa",
+                         "Non-metric multidimensional scaling (nMDS)" = "beta_nmds")),
+          actionButton(inputId = "beta_analysis", 
+                       label = "Update plot")
+        )
+      )
+      appendTab(
+        inputId = "tabset",
+        tabPanel(
+          title = "Taxonomy",
+          br(),
+          selectInput(inputId = "metavar_taxonomy", 
+                      label = "Metainformation variable",
+                      choices = colnames(reactives$metadata_current)),
+          radioButtons(inputId = "taxonomy_level", 
+                       label = "Taxonomic level", 
+                       choices = c("Domain", "Phylum", "Class", "Order", 
+                                   "Family", "Genus", "Species")),
+          actionButton(inputId = "tax_analysis", 
+                       label = "Update plot")
+        )
+      )
+      appendTab(
+        inputId = "tabset",
+        tabPanel(
+          title = "Sample selection",
+          br(),
+          lapply(colnames(reactives$metadata_current), function(x) {
+            pickerInput(inputId = paste("sampleselector_", x),
+                        label = x,
+                        choices = unique(reactives$metadata_current[, x]),
+                        selected = unique(reactives$metadata_current[, x]),
+                        multiple = TRUE,
+                        options = list(`actions-box` = TRUE,
+                                       `selected-text-format` = "count",
+                                       `count-selected-text` = "{0}/{1} selected"))
+          }) # Close lapply function
+        )
+      )
+    }    
   }
   
   #output$plot <- renderPlot({
