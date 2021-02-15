@@ -252,7 +252,7 @@ server <- function(input, output, session) {
         reactives$metadata_2[reactives$metadata_2$Sample_ID %in% 
                                colnames(reactives$featuredata_3), ]
       reactives$featuredata_current <- reactives$featuredata_3
-      reactives$metadata_current <- reactives$metadata_3
+      reactives$metadata_current <- reactives$metadata_3      
     }
     
     # --------------------------------------------------------------------------
@@ -450,7 +450,36 @@ server <- function(input, output, session) {
         names(neg_span_steps[neg_span_steps == input$req_span_neg2])), 
         sep = " "), paste0(reactives$output_dir, "/output/Filter_criteria.txt"))
     }
-       
+    # --------------------------------------------------------------------------
+    # Pre-calculate values for analysis
+    # --------------------------------------------------------------------------
+    # Define alpha diversity indices
+    Richness.function <- function(x) {sum(x > 0)}
+    Shannon.function <- function(x) {
+      -sum(scale(x, center = FALSE, scale = sum(x))*
+             log(scale(x, center = FALSE, scale = sum(x))), na.rm = TRUE)
+    }
+    InvSimpson.function <- function(x) {
+      1/(sum((scale(x, center = FALSE, scale = sum(x)))^2))
+    }
+    Simpson.function <- function(x) {
+      sum((scale(x, center = FALSE, scale = sum(x)))^2)
+    }
+    Evenness.function <- function(x) {
+      (-sum(scale(x, center = FALSE, scale = sum(x)) *
+              log(scale(x, center = FALSE, scale = sum(x))), na.rm = TRUE)) /
+        log(sum(x > 0))
+    }
+    # Calculate alpha diversity indices for current metadata
+    reactives$alpha_diversity_values <- data.frame(
+      Richness = apply(reactives$featuredata_current, 2, Richness.function),
+      Shannon = apply(reactives$featuredata_current, 2, Shannon.function),
+      Inv.Simpson = apply(reactives$featuredata_current, 2, InvSimpson.function),
+      Simpson = apply(reactives$featuredata_current, 2, Simpson.function),
+      Evenness = apply(reactives$featuredata_current, 2, Evenness.function))
+    rownames(reactives$alpha_diversity_values) <- 
+      colnames(reactives$featuredata_current)
+    
     # ------------------------------------------------------------------------
     # Provide information for visualisation and build filtering plots
     # ------------------------------------------------------------------------
@@ -717,7 +746,7 @@ server <- function(input, output, session) {
           title = "Sample selection",
           br(),
           lapply(colnames(reactives$metadata_current), function(x) {
-            pickerInput(inputId = paste("sampleselector_", x),
+            pickerInput(inputId = paste0("sampleselector_", x),
                         label = x,
                         choices = unique(reactives$metadata_current[, x]),
                         selected = unique(reactives$metadata_current[, x]),
@@ -777,9 +806,85 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$alpha_analysis, {
     print(paste0("INFO|server::alpha_diversity",Sys.time()))
+    # Filter feature and metadata according to sample selection
+    samples_deselected <- Sample_selection_check()
+    Metadata <- 
+      reactives$metadata_current[!rownames(reactives$metadata_current) %in% 
+                                   samples_deselected, ]
+    # Select alpha diversity values for selected samples
+    alpha_diversity_result <- 
+      reactives$alpha_diversity_values[!rownames(reactives$metadata_current) %in% 
+                                         samples_deselected ,]
+    # Perform z-transformation if needed
+    print(str(alpha_diversity_result))
+    if (input$scaling == "Z-normalized values") {
+      alpha_diversity_result <- 
+        as.data.frame(apply(alpha_diversity_result, 2, function(x)
+          scale(x, center = TRUE, scale = TRUE)), 
+          row.names = rownames(alpha_diversity_result))
+    }
+    # Attach variables of interest for alpha diversity
+    alpha_diversity_result["Group"] <- Metadata[paste0(input$metavar_alpha)]
+    if(input$subvar_alpha != "ignore") {
+      alpha_diversity_result["Subgroup"] <- Metadata[paste0(input$subvar_alpha)]
+    }
+    print(str(melt(alpha_diversity_result)))
+    # Generate the alpha diversity plot
+    alpha_diversity_result_plot <- melt(alpha_diversity_result)
+    alpha_diversity_plot <- 
+      ggplot(data = alpha_diversity_result_plot, 
+             aes(x = Group, y = value, colour = Group)) +
+      geom_boxplot()
+    if (input$subvar_alpha != "ignore" && input$scaling == "Z-normalized values") {
+      alpha_diversity_plot <- alpha_diversity_plot + 
+        facet_wrap(Subgroup ~ variable, 
+                   nrow = length(unique(alpha_diversity_result_plot$Subgroup)),
+                   scales = "free_x")
+    } else if (input$subvar_alpha != "ignore") {
+      alpha_diversity_plot <- alpha_diversity_plot +
+        facet_wrap(Subgroup ~ variable, 
+                   ncol = length(levels(alpha_diversity_result_plot$variable)), 
+                   scales = "free")      
+    } else if (input$scaling == "Z-normalized values") {
+      alpha_diversity_plot <- alpha_diversity_plot +
+        facet_wrap(. ~ variable, 
+                   ncol = length(levels(alpha_diversity_result_plot$variable)))
+    } else {
+      alpha_diversity_plot <- alpha_diversity_plot +
+        facet_wrap(. ~ variable, 
+                   ncol = length(levels(alpha_diversity_result_plot$variable)), 
+                   scales = "free_y")
+    }
     
+    output$plot <- renderPlot({
+      alpha_diversity_plot
+    })
+    # Output table and significance
+  })
+  
+  observeEvent(input$subvar_alpha, {
+    if(input$subvar_alpha == input$metavar_alpha) {
+      showModal(modalDialog(
+        title = "Error10", "Please choose a second variable for alpha diversity
+        that is different from your main variable."))
+      updateSelectInput(session, inputId = "subvar_alpha", selected = "ignore")
+    }
   })
 
+  Sample_selection_check <- function() {
+    # return all sample names that should not appear in the analysis
+    samples_deselected <- rownames(reactives$metadata_current)[sort(
+      unique(unlist(sapply(colnames(reactives$metadata_current), function(x) {
+        which(!reactives$metadata_current[, x] %in% 
+                input[[paste0("sampleselector_", x)]])
+        }
+      )))
+    )]
+    print("SAMPLE SELECTION CHECK")
+    print(samples_deselected)
+    return(samples_deselected)
+  }
+  
   # ----------------------------------------------------------------------------
   # Beta diversity analysis
   # ----------------------------------------------------------------------------
