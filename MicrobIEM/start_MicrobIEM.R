@@ -21,6 +21,10 @@ start_MicrobIEM <- function() {
   if("reshape2" %in% rownames(installed.packages()) == FALSE) 
     install.packages("reshape2")
   library(reshape2)
+  if("plotly" %in% rownames(installed.packages()) == FALSE) 
+    install.packages("plotly")
+  library(plotly)
+  
   
   # load ui and server files
   source("MicrobIEM/ui.R"); 
