@@ -488,10 +488,10 @@ server <- function(input, output, session) {
         reads = colSums(reactives$featuredata_current),
         features = apply(reactives$featuredata_current, 2, function(x) sum(x > 0)))
       print(str(data_to_plot))
-      output$plot <- renderPlot({
+      output$plot <- renderPlotly({
         ggplot(data = data_to_plot, aes(x = reads, y = features)) +
           geom_point()
-      }) 
+      })
     }
     if(input$visualization_type == "Change in feature abundance") {
       data_to_plot <- data.frame(
@@ -500,7 +500,7 @@ server <- function(input, output, session) {
         reads_now = rowSums(reactives$featuredata_current)), by = 0, all = TRUE)
       data_to_plot[is.na(data_to_plot)] <- 0
       print(str(data_to_plot))
-      output$plot <- renderPlot({
+      output$plot <- renderPlotly({
         ggplot(data = data_to_plot, aes(x = reads_before, y = reads_now)) +
           geom_point()
       }) 
@@ -530,12 +530,12 @@ server <- function(input, output, session) {
               geom_vline(aes(linetype = "Ratio_threshold",
                              xintercept = as.numeric(input$req_ratio_neg1)))
           }
-          output$plot <- renderPlot({
+          output$plot <- renderPlotly({
             contamination_plot
           })
         }
         if(input$visualization_type == "Contamination removal - NEG2") {
-          output$plot <- renderPlot({
+          output$plot <- renderPlotly({
             ggplot(data = reactives$filter_basis, 
                    aes(x = ratio_neg2, y = neg2_span, size = sample_mean)) +
               geom_point() +
@@ -559,7 +559,7 @@ server <- function(input, output, session) {
                          sum_of_reads_function(reactives$featuredata_4),
                          sum_of_reads_function(reactives$featuredata_5)))
       print(str(data_to_plot))
-      output$plot <- renderPlot({
+      output$plot <- renderPlotly({
         ggplot(data = data_to_plot, aes(x = step, y = sum_of_reads)) +
           geom_bar(stat = "identity")
       }) 
@@ -834,7 +834,8 @@ server <- function(input, output, session) {
     alpha_diversity_plot <- 
       ggplot(data = alpha_diversity_result_plot, 
              aes(x = Group, y = value, colour = Group)) +
-      geom_boxplot()
+      geom_boxplot() +
+      theme(strip.text.x = element_text(size = 6, colour = "orange"))
     if (input$subvar_alpha != "ignore" && input$scaling == "Z-normalized values") {
       alpha_diversity_plot <- alpha_diversity_plot + 
         facet_wrap(Subgroup ~ variable, 
@@ -855,8 +856,7 @@ server <- function(input, output, session) {
                    ncol = length(levels(alpha_diversity_result_plot$variable)), 
                    scales = "free_y")
     }
-    
-    output$plot <- renderPlot({
+    output$plot <- renderPlotly({
       alpha_diversity_plot
     })
     # Output table and significance
