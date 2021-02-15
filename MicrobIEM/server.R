@@ -732,21 +732,70 @@ server <- function(input, output, session) {
     }    
   }
   
+  # ----------------------------------------------------------------------------
+  # Prevent the user from messing up the files
+  # ----------------------------------------------------------------------------
+  observeEvent(input$tabset, {
+    if(reactives$step_var == 6 && input$tabset == "Filtering") {
+      showModal(modalDialog(
+        title="Are you sure?",
+        "Returning to filtering may overwrite your final filtered files",
+        footer = tagList(actionButton("refilter_button", "Go back to filtering"),
+                         modalButton("Stay on analysis site"))
+      ))
+      updateTabsetPanel(session, "tabset", selected = "Alpha diversity")
+    }
+    if(reactives$step_var == 5 && input$tabset != "Filtering") {
+      showModal(modalDialog(
+        title="Are you sure?",
+        "Returning to analysis will not save the changes you made in filtering.
+        If you want to save the changes and overwrite your final filtered files,
+        press the 'Next' button at the bottom of the page.",
+        footer = tagList(actionButton("reanalysis_button", 
+                                      "Proceed to analysis without saving changes"),
+                         modalButton("Stay on filtering site")
+        )
+      ))
+      updateTabsetPanel(session, "tabset", selected = "Filtering")
+    }
+  })
+  
+  observeEvent(input$refilter_button, {
+    reactives$step_var <- reactives$step_var - 1
+    updateTabsetPanel(session, "tabset", selected = "Filtering")
+    removeModal()
+  })
+  
+  observeEvent(input$reanalysis_button, {
+    reactives$step_var <- reactives$step_var + 1
+    updateTabsetPanel(session, "tabset", selected = "Alpha diversity") 
+    removeModal()
+  })
+  
+  # ----------------------------------------------------------------------------
+  # Alpha diversity analysis
+  # ----------------------------------------------------------------------------
   observeEvent(input$alpha_analysis, {
     print(paste0("INFO|server::alpha_diversity",Sys.time()))
     
   })
 
+  # ----------------------------------------------------------------------------
+  # Beta diversity analysis
+  # ----------------------------------------------------------------------------
   observeEvent(input$beta_analysis, {
     print(paste0("INFO|server::beta_diversity",Sys.time()))
     
   })
   
+  # ----------------------------------------------------------------------------
+  # Taxonomy analysis
+  # ----------------------------------------------------------------------------
   observeEvent(input$tax_analysis, {
     print(paste0("INFO|server::taxnonomy",Sys.time()))
     
   })
-
+  
   #output$plot <- renderPlot({
   #  set.seed(1)  
   #  plot(rnorm(10, 0, 2), rnorm(10, as.numeric(input$req_reads_per_sample), 
