@@ -187,11 +187,10 @@ server <- function(input, output, session) {
                            input$req_ratio_neg2,
                            input$req_span_neg2)
       # Make buttons appear
+      step_var_UIchange()
       shinyjs::show("update_button")
       shinyjs::show("back_button")
       shinyjs::show("next_button")
-      shinyjs::show("visualization_type")
-      shinyjs::show("req_reads_per_sample")
     } else {
       showModal(modalDialog(
         title = "Error6", "Sample IDs do not match between meta table and 
@@ -451,7 +450,7 @@ server <- function(input, output, session) {
         sep = " "), paste0(reactives$output_dir, "/output/Filter_criteria.txt"))
     }
     # --------------------------------------------------------------------------
-    # Pre-calculate values for analysis
+    # Pre-calculate values for alpha diversity analysis
     # --------------------------------------------------------------------------
     # Define alpha diversity indices
     Richness.function <- function(x) {sum(x > 0)}
@@ -479,6 +478,24 @@ server <- function(input, output, session) {
       Evenness = apply(reactives$featuredata_current, 2, Evenness.function))
     rownames(reactives$alpha_diversity_values) <- 
       colnames(reactives$featuredata_current)
+    # --------------------------------------------------------------------------
+    # Pre-calculate values for taxonomy analysis
+    # --------------------------------------------------------------------------
+    # Split taxonomy by levels
+    reactives$taxonomy_data <- 
+      apply(reactives$featuredata_taxonomy, 1, function(x)
+      unlist(strsplit(x, split = ";|,")))
+    # Iterate over vector items, apply the unique colname to them, rbind all
+    reactives$taxonomy_data <- data.frame(
+      do.call(rbind, lapply(reactives$taxonomy_data, "[", 
+                            unique(unlist(c(sapply(reactives$taxonomy_data, 
+                                                   names)))))))
+    colnames(reactives$taxonomy_data) <- 
+      c("Domain", "Phylum", "Class", "Order", "Family", "Genus", 
+        "Species")[1:length(colnames(reactives$taxonomy_data))]
+    # Replace NA and empty values
+    reactives$taxonomy_data[is.na(reactives$taxonomy_data)] <- "no_Annotation"
+    reactives$taxonomy_data[reactives$taxonomy_data == ""] <- "no_Annotation"
     
     # ------------------------------------------------------------------------
     # Provide information for visualisation and build filtering plots
@@ -628,6 +645,7 @@ server <- function(input, output, session) {
     if(reactives$step_var == 2){
       shinyjs::disable("metafile")
       shinyjs::disable("featurefile")
+      shinyjs::show("visualization_type")
       shinyjs::show("req_reads_per_sample") 
       shinyjs::enable("req_reads_per_sample") 
       shinyjs::hide("req_reads_per_feature")
@@ -736,6 +754,12 @@ server <- function(input, output, session) {
                        label = "Taxonomic level", 
                        choices = c("Domain", "Phylum", "Class", "Order", 
                                    "Family", "Genus", "Species")),
+          numericInput(inputId = "top_number_taxa",
+                       label = "Top number of taxa displayed",
+                       value = 10, min = 1, max = 20, step = 1),
+          radioButtons(inputId = "per_group_overall", 
+                       label = "Top number of taxa based on", 
+                       choices = c("Per group", "Overall")),
           actionButton(inputId = "tax_analysis", 
                        label = "Update plot")
         )
@@ -835,6 +859,7 @@ server <- function(input, output, session) {
       ggplot(data = alpha_diversity_result_plot, 
              aes(x = Group, y = value, colour = Group)) +
       geom_boxplot() +
+      geom_point() +
       theme(strip.text.x = element_text(size = 6, colour = "orange"))
     if (input$subvar_alpha != "ignore" && input$scaling == "Z-normalized values") {
       alpha_diversity_plot <- alpha_diversity_plot + 
@@ -890,7 +915,42 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$beta_analysis, {
     print(paste0("INFO|server::beta_diversity",Sys.time()))
-    
+    samples_deselected <- Sample_selection_check()
+    Metadata <- 
+      reactives$metadata_current[!rownames(reactives$metadata_current) %in% 
+                                   samples_deselected, ]
+    Featuredata <- 
+      reactives$featuredata_current[, !colnames(reactives$featuredata_current) %in%
+                                      samples_deselected]
+    if (input$plot_beta == "beta_nmds") {
+      set.seed(1)
+      featuredata_3_freq <- 
+        t(decostand(t(reactives$featuredata_3), method = "total"))
+      beta_diversity_values <- 
+        metaMDS(decostand(t(Featuredata), method = "total"), distance = "bray", 
+                k = 2, autotransform = FALSE)
+      beta_diversity_results <- data.frame(
+        Axis1 = beta_diversity_values$points[, 1],
+        Axis2 = beta_diversity_values$points[, 2])
+      rownames(beta_diversity_results) <- colnames(Featuredata)
+    } else if (input$plot_beta == "beta_pcoa") {
+      set.seed(1)
+      beta_diversity_values <- 
+        cmdscale(vegdist(decostand(t(Featuredata), method = "total"), 
+                         distance = "bray"), k = 2, eig = FALSE, add = FALSE, 
+                 x.ret = FALSE)
+      beta_diversity_results <- data.frame(
+        Axis1 = beta_diversity_values[, 1],
+        Axis2 = beta_diversity_values[, 2])
+      rownames(beta_diversity_results) <- colnames(Featuredata)
+    }
+    beta_diversity_results["Group"] <- Metadata[paste0(input$metavar_beta)]
+    output$plot <- renderPlotly({
+      ggplot(data = beta_diversity_results, 
+             aes(x = Axis1, y = Axis2, colour = Group)) +
+        geom_point() +
+        stat_ellipse(aes(colour = Group))
+    })
   })
   
   # ----------------------------------------------------------------------------
@@ -898,7 +958,108 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$tax_analysis, {
     print(paste0("INFO|server::taxnonomy",Sys.time()))
+    samples_deselected <- Sample_selection_check()
+    Metadata <- 
+      reactives$metadata_current[!rownames(reactives$metadata_current) %in% 
+                                   samples_deselected, ]
+    Featuredata <- 
+      reactives$featuredata_current[, !colnames(reactives$featuredata_current) %in%
+                                      samples_deselected]
+    # Merge taxonomic level and featuredata
+    Featuredata_freq <- t(decostand(t(Featuredata), method = "total"))
+    Taxonomy_data <- 
+      merge(Featuredata_freq, reactives$taxonomy_data[input$taxonomy_level], 
+            by = 0, all.x = TRUE)
+    # Sum up frequencies with identical taxonomy
+    Taxonomy_data <- Taxonomy_data %>% 
+      group_by(.data[[input$taxonomy_level]]) %>%
+      summarise(across(.cols = is.numeric, .fns = sum, .names = "{col}")) %>%
+      as.data.frame()
+    # Check that the chosen number of taxa is available
+    if(input$top_number_taxa > nrow(Taxonomy_data)) {
+      top_number_taxa <- nrow(Taxonomy_data)
+      updateNumericInput(session, inputId = "top_number_taxa", 
+                         value = nrow(Taxonomy_data))
+      showModal(modalDialog(
+        title = "Warning", 
+        paste0("There are only ", nrow(Taxonomy_data), " different taxa at ", 
+               input$taxonomy_level, " level. The top number of taxa displayed 
+               is set to ", nrow(Taxonomy_data), ".")))
+    } else {
+      top_number_taxa <- input$top_number_taxa
+    }
+    metavar_taxonomy <- input$metavar_taxonomy
+    # Attach meta variable of interest
+    rownames(Taxonomy_data) <- Taxonomy_data[[input$taxonomy_level]]
+    Taxonomy_data[[input$taxonomy_level]] <- NULL
+    Taxonomy_data <- as.data.frame(t(Taxonomy_data))
+    Taxonomy_data <- 
+      merge(Taxonomy_data, 
+            Metadata[, colnames(Metadata) == metavar_taxonomy, drop = FALSE], 
+            by = 0, all = TRUE)
+    Taxonomy_data[[metavar_taxonomy]] <- 
+      as.character(Taxonomy_data[[metavar_taxonomy]])
+    # Build mean frequency per selected group
+    Taxonomy_data <- Taxonomy_data %>%
+      group_by(.data[[metavar_taxonomy]]) %>%
+      summarise(across(.cols = is.numeric, .fns = mean, .names = "{col}")) %>%
+      as.data.frame()
+    print(head(Taxonomy_data))
+    # Select top taxa per group or overall
+    if(input$per_group_overall == "Overall") {
+      Top_taxa <- Taxonomy_data %>%
+        select_if(is.numeric) %>%
+        colMeans() %>% 
+        sort(decreasing = TRUE)
+      Top_taxa <- names(Top_taxa[1:top_number_taxa])
+    } else if (input$per_group_overall == "Per group") {
+      Top_taxa <- Taxonomy_data %>%
+        group_by(.data[[metavar_taxonomy]]) %>%
+        select_if(is.numeric) %>%
+        group_map(~ names(sort(.x, decreasing = TRUE)[1:top_number_taxa]))
+      Top_taxa <- unique(unlist(Top_taxa))
+    }
+    # Summarise other taxa into "Others"
+    Taxonomy_others <- Taxonomy_data %>% 
+      select_if(is.numeric) %>%
+      select(-all_of(Top_taxa)) %>%
+      rowSums() %>% 
+      data.frame
+    colnames(Taxonomy_others) <- "Others"
+    print(colSums(Taxonomy_others))
+    if(colSums(Taxonomy_others) != 0) {
+      Taxonomy_data <- merge(Taxonomy_data[, c(metavar_taxonomy, Top_taxa)], 
+                             Taxonomy_others, by = 0, all = TRUE)
+    }
+    # Plot the result
+    print(Top_taxa)
+    print(Taxonomy_data)
+    Taxonomy_data <- melt(Taxonomy_data)
+    print(head(Taxonomy_data))
+    output$plot <- renderPlotly({
+      ggplot(data = Taxonomy_data, aes(x = 1, y = value, fill = variable)) +
+        geom_bar(position = "fill",stat = "identity") +
+        facet_wrap(. ~ Taxonomy_data[[metavar_taxonomy]], nrow = 1) 
+    })
+      #putId = "per_group_overall", 
+      #label = "Top number of taxa based on", 
+    #choices = c("Per group", "Overall"))
+      # top_number_taxa
     
+    
+  })
+  
+  observeEvent(input$taxonomy_level, {
+    #print(colnames(reactives$taxonomy_data))
+    #print(input$taxonomy_level)
+    if(!(input$taxonomy_level %in% colnames(reactives$taxonomy_data))) {
+      showModal(modalDialog(
+        title = "Error11", paste0("It seems that your taxonomic annotation does 
+        not provide information on ", input$taxonomy_level, " level. Please 
+        select a lower taxonomic level for analysis.")))
+      updateRadioButtons(session, inputId = "taxonomy_level", 
+                         selected = "Domain")
+    }
   })
   
   #output$plot <- renderPlot({
