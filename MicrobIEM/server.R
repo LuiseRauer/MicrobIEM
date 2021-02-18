@@ -53,10 +53,11 @@ server <- function(input, output, session) {
   # Read and check the metafile
   # ----------------------------------------------------------------------------
   observeEvent(input$metafile, {
+    print(paste0("INFO - input in metafile - ", Sys.time()))
     # Check correct file extension
     if (!(tools::file_ext(input$metafile$datapath) %in% c("csv", "txt"))) {
       showModal(modalDialog(
-        title = "Error1", "Please choose a csv or txt file as meta table."))
+        title = "Error 1a", "Please choose a csv or txt file as meta table."))
     } else {
       reactives$metadata <- read.csv(input$metafile$datapath, sep = "\t", 
                                      header = TRUE, check.names = FALSE)
@@ -65,9 +66,9 @@ server <- function(input, output, session) {
       # Check for columns Sample_ID and Sample_type
       if (colnames_md[1] != "Sample_ID" || !("Sample_type" %in% colnames_md)) {
         showModal(modalDialog(
-          title = "Error2", 
+          title = "Error 2", 
           "Please provide a meta information table with the first column 
-          'Sample_ID' and a column 'Sample_type' to define samples and controls"))
+          'Sample_ID' and a column 'Sample_type' to define samples and controls."))
         reactives$metadata <- NA
       } else {
         sample_types_observed <- unique(reactives$metadata[, "Sample_type"])
@@ -75,7 +76,7 @@ server <- function(input, output, session) {
         if ((sum(sample_types_observed %in% sample_types_allowed) != 
              length(sample_types_observed))) {
           showModal(modalDialog(
-            title = "Error3", 
+            title = "Error 3", 
             paste0("Please use only the following labels to define samples and 
                    controls: ", 
                    paste(sample_types_allowed, collapse = ", "))))
@@ -92,20 +93,20 @@ server <- function(input, output, session) {
   # Read and check the featurefile
   # ----------------------------------------------------------------------------
   observeEvent(input$featurefile, {
+    print(paste0("INFO - input in featurefile - ", Sys.time()))
     # Check correct file extension
     if (!(tools::file_ext(input$featurefile$datapath) %in% c("csv", "txt"))) {
       showModal(modalDialog(
-        title = "Error4", "Please choose a csv or txt file as feature table."))
+        title = "Error 1b", "Please choose a csv or txt file as feature table."))
     } else {
       reactives$featuredata <- read.csv(input$featurefile$datapath, sep = "\t", 
                                         header = TRUE, check.names = FALSE)
-      print(isolate(colnames(reactives$featuredata)))
       colnames_fd <- colnames(reactives$featuredata)
       # Check for columns OTU_ID and Taxonomy
       if(length(colnames_fd) < 3 || colnames_fd[1] != "OTU_ID" || 
          colnames_fd[length(colnames_fd)] != "Taxonomy") {
         showModal(modalDialog(
-          title = "Error5", "Please provide a feature table with the first 
+          title = "Error 4", "Please provide a feature table with the first 
           column 'OTU_ID', at least one sample, and the last column 'Taxonomy'"))
         reactives$featuredata <- NA
       } else if (!is.na(reactives$featuredata) && !is.na(reactives$metadata)) {
@@ -124,9 +125,9 @@ server <- function(input, output, session) {
     sample_names_fd <- head(colnames(reactives$featuredata)[-1], -1)
     # If sample names match in feature file and meta file, start filtering
     if (identical(sort(sample_names_md), sort(sample_names_fd))) {
-      showModal(modalDialog(
-        title = "Success2", "Meta table and feature table were uploaded. 
-        Please note that filtering can take several minutes."))
+      print(paste0("INFO - meta and featurefile loaded - ", Sys.time()))
+      print(paste0("INFO - ", length(sample_names_md), 
+                   " samples and controls found in this analysis"))
       # Create output directory
       if (is.na(reactives$output_dir)) {
         reactives$output_dir <- gsub(":", "_", format(Sys.time(), 
@@ -134,9 +135,7 @@ server <- function(input, output, session) {
         if (!dir.exists(reactives$output_dir)){
           dir.create(paste0(reactives$output_dir, "/output"), recursive = TRUE)
           dir.create(paste0(reactives$output_dir, "/interim"), recursive = TRUE)
-          print(paste0("INFO|server|output dir created", Sys.time()))
-        } else {
-          print(paste0("INFO|server|output dir not created", Sys.time()))
+          print(paste0("INFO - output directory created - ", Sys.time()))
         }
       }
       
@@ -145,8 +144,9 @@ server <- function(input, output, session) {
       # ------------------------------------------------------------------------
       # Replace NA values in the metafile
       if (sum(is.na(reactives$metadata)) > 0) {
+        print(paste0("INFO - replacing NA values in metafile - ", Sys.time()))
         reactives$metadata[is.na(reactives$metadata)] <- "n.a." 
-        print(c("INFO|server|replaced ", sum(is.na(reactives$metadata)), 
+        print(c("INFO - Replaced ", sum(is.na(reactives$metadata)), 
                 " in columns: ", 
                 colnames(reactives$metadata)[colSums(is.na(reactives$metadata)) > 0]))
       }
@@ -158,6 +158,8 @@ server <- function(input, output, session) {
         Taxonomy = reactives$featuredata[, "Taxonomy", drop = FALSE])
       reactives$featuredata[, c("OTU_ID", "Taxonomy")] <- NULL
       # Subset real samples
+      print(paste0("INFO - filtering step 1 - separate samples and controls - ", 
+                   Sys.time()))
       ID_SAMPLE <- 
         reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
                                    sample_types_allowed[1]), "Sample_ID"]
@@ -174,6 +176,9 @@ server <- function(input, output, session) {
         reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
                                    sample_types_allowed[5]), "Sample_ID"]
       reactives$featuredata_neg2 <- reactives$featuredata[, ID_NEG2, drop = FALSE]
+      print(paste0("INFO - detected ", length(ID_SAMPLE), " real samples, ",
+                   length(ID_NEG1), " NEG1 controls, and ",
+                   length(ID_NEG2), " NEG2 controls in the data."))
       
       # ------------------------------------------------------------------------
       # Proceed one step and start the filtering 
@@ -193,7 +198,7 @@ server <- function(input, output, session) {
       shinyjs::show("next_button")
     } else {
       showModal(modalDialog(
-        title = "Error6", "Sample IDs do not match between meta table and 
+        title = "Error 5", "Sample IDs do not match between meta table and 
         feature table."))
     }
   }
@@ -207,16 +212,16 @@ server <- function(input, output, session) {
                                    req_ratio_neg1,
                                    req_span_neg1,
                                    req_ratio_neg2,
-                                   req_span_neg2){
+                                   req_span_neg2) {
 
     # --------------------------------------------------------------------------
     # Filter step 2: remove samples
     # --------------------------------------------------------------------------
     if(reactives$step_var == 2 || 
        reactives$req_reads_per_sample_old != input$req_reads_per_sample) {
-      print("filtering_2 branch started")
+      print(paste0("INFO - filtering step 2 - remove samples - ", 
+                   Sys.time()))
       # Define samples to keep
-      print(colnames(reactives$featuredata_1))
       sample_read_sums <- colSums(reactives$featuredata_1)
       samples_to_keep <- names(
         sample_read_sums[sample_read_sums >= as.numeric(req_reads_per_sample)])
@@ -226,14 +231,17 @@ server <- function(input, output, session) {
         reactives$metadata_1[reactives$metadata_1$Sample_ID %in% samples_to_keep, ]
       reactives$featuredata_current <- reactives$featuredata_2
       reactives$metadata_current <- reactives$metadata_2
-      print(colnames(reactives$featuredata_2))
+      print(paste0("INFO - ", nrow(reactives$metadata_current), " samples and ",
+                   sum(rowSums(reactives$featuredata_current)), " reads in ", 
+                   nrow(reactives$featuredata_current), " features remaining"))
     }
     
     # --------------------------------------------------------------------------
     # Filter step 3: remove features by abundance
     # --------------------------------------------------------------------------
     if(reactives$step_var == 3 || reactives$req_reads_per_feature_old != input$req_reads_per_feature) {
-      print("filtering_3 branch started")
+      print(paste0("INFO - filtering step 3 - remove features by abundance - ", 
+                   Sys.time()))
       # Define feature to keep
       feature_read_sums <- rowSums(reactives$featuredata_2)
       feature_to_keep_abund <- names(
@@ -243,15 +251,16 @@ server <- function(input, output, session) {
         reactives$featuredata_2[feature_to_keep_abund, ]
       # Remove empty samples:
       sample_read_sums <- colSums(reactives$featuredata_3)
-      print(sample_read_sums) #
       samples_to_keep <- names(sample_read_sums[sample_read_sums > 0])
-      print(samples_to_keep) #
       reactives$featuredata_3 <- reactives$featuredata_3[, samples_to_keep]
       reactives$metadata_3 <- 
         reactives$metadata_2[reactives$metadata_2$Sample_ID %in% 
                                colnames(reactives$featuredata_3), ]
       reactives$featuredata_current <- reactives$featuredata_3
       reactives$metadata_current <- reactives$metadata_3      
+      print(paste0("INFO - ", nrow(reactives$metadata_current), " samples and ",
+                   sum(rowSums(reactives$featuredata_current)), " reads in ", 
+                   nrow(reactives$featuredata_current), " features remaining"))
     }
     
     # --------------------------------------------------------------------------
@@ -259,7 +268,8 @@ server <- function(input, output, session) {
     # --------------------------------------------------------------------------
     if(reactives$step_var == 4 ||
        reactives$req_ratio_per_feature_old != input$req_ratio_per_feature) {
-      print("filtering_4 branch started")
+      print(paste0("INFO - filtering step 4 - remove features by frequency - ", 
+                   Sys.time()))
       # Convert feature table to frequencies
       featuredata_3_freq <- 
         t(decostand(t(reactives$featuredata_3), method = "total"))
@@ -272,15 +282,16 @@ server <- function(input, output, session) {
         reactives$featuredata_3[feature_to_keep_freq, ]
       # Remove empty samples:
       sample_read_sums <- colSums(reactives$featuredata_4)
-      print(sample_read_sums) #
       samples_to_keep <- names(sample_read_sums[sample_read_sums > 0])
-      print(samples_to_keep) #
       reactives$featuredata_4 <- reactives$featuredata_4[, samples_to_keep]
       reactives$metadata_4 <- 
         reactives$metadata_3[reactives$metadata_3$Sample_ID %in% 
                                colnames(reactives$featuredata_4), ]
       reactives$featuredata_current <- reactives$featuredata_4
       reactives$metadata_current <- reactives$metadata_4
+      print(paste0("INFO - ", nrow(reactives$metadata_current), " samples and ",
+                   sum(rowSums(reactives$featuredata_current)), " reads in ", 
+                   nrow(reactives$featuredata_current), " features remaining"))
     }
     
     # --------------------------------------------------------------------------
@@ -291,7 +302,8 @@ server <- function(input, output, session) {
        reactives$req_span_neg1_old != input$req_span_neg1 ||
        reactives$req_ratio_neg2_old != input$req_ratio_neg2 ||
        reactives$req_span_neg2_old != input$req_span_neg2) {
-      print("filtering_5 branch started")
+      print(paste0("INFO - filtering step 5 - remove contaminants - ", 
+                   Sys.time()))
       # Convert current filtered feature table to frequencies
       featuredata_4_freq <- 
         t(decostand(t(reactives$featuredata_4), method = "total"))
@@ -303,8 +315,6 @@ server <- function(input, output, session) {
       neg1_span <- 
         apply(reactives$featuredata_neg1, 1, function(x) sum(x > 0)/length(x))
       # Transform neg2-data to frequencies and calculate mean/span per feature
-      print(reactives$featuredata_neg2)
-      print(str(reactives$featuredata_neg2))
       neg2_mean <-  
         rowMeans(t(decostand(t(reactives$featuredata_neg2), method = "total")))
       neg2_span <- 
@@ -352,21 +362,24 @@ server <- function(input, output, session) {
           c(feature_removed_neg1, feature_removed_neg2)), ]
       # Remove empty samples
       sample_read_sums <- colSums(reactives$featuredata_5)
-      print(sample_read_sums) #
       samples_to_keep <- names(sample_read_sums[sample_read_sums > 0])
-      print(samples_to_keep) #
       reactives$featuredata_5 <- reactives$featuredata_5[, samples_to_keep]
       reactives$metadata_5 <- 
         reactives$metadata_4[reactives$metadata_4$Sample_ID %in% 
                                colnames(reactives$featuredata_5), ]
       reactives$featuredata_current <- reactives$featuredata_5
       reactives$metadata_current <- reactives$metadata_5
+      print(paste0("INFO - ", nrow(reactives$metadata_current), " samples and ",
+                   sum(rowSums(reactives$featuredata_current)), " reads in ", 
+                   nrow(reactives$featuredata_current), " features remaining"))
     }
     
     # --------------------------------------------------------------------------
     # Step 6: save final files
     # --------------------------------------------------------------------------
     if(reactives$step_var == 6) {
+      print(paste0("INFO - filtering step 6 - save final feature and metadata - ", 
+                   Sys.time()))
       # Save final featuretable with absolute counts
       featuredata_current <- merge(reactives$featuredata_current,
                                    reactives$featuredata_taxonomy, 
@@ -449,56 +462,65 @@ server <- function(input, output, session) {
         "", "Span threshold (NEG2)", 
         names(neg_span_steps[neg_span_steps == input$req_span_neg2])), 
         sep = " "), paste0(reactives$output_dir, "/output/Filter_criteria.txt"))
+      
+      # --------------------------------------------------------------------------
+      # Pre-calculate values for alpha diversity analysis
+      # --------------------------------------------------------------------------
+      print(paste0("INFO - pre-calculate alpha diversity values - ", Sys.time()))
+      # Define alpha diversity indices
+      Richness.function <- function(x) {sum(x > 0)}
+      Shannon.function <- function(x) {
+        -sum(scale(x, center = FALSE, scale = sum(x))*
+               log(scale(x, center = FALSE, scale = sum(x))), na.rm = TRUE)
+      }
+      InvSimpson.function <- function(x) {
+        1/(sum((scale(x, center = FALSE, scale = sum(x)))^2))
+      }
+      Simpson.function <- function(x) {
+        sum((scale(x, center = FALSE, scale = sum(x)))^2)
+      }
+      Evenness.function <- function(x) {
+        (-sum(scale(x, center = FALSE, scale = sum(x)) *
+                log(scale(x, center = FALSE, scale = sum(x))), na.rm = TRUE)) /
+          log(sum(x > 0))
+      }
+      # Calculate alpha diversity indices for current metadata
+      reactives$alpha_diversity_values <- data.frame(
+        Richness = apply(reactives$featuredata_current, 2, Richness.function),
+        Shannon = apply(reactives$featuredata_current, 2, Shannon.function),
+        Inv.Simpson = apply(reactives$featuredata_current, 2, InvSimpson.function),
+        Simpson = apply(reactives$featuredata_current, 2, Simpson.function),
+        Evenness = apply(reactives$featuredata_current, 2, Evenness.function))
+      rownames(reactives$alpha_diversity_values) <- 
+        colnames(reactives$featuredata_current)
+      
+      # --------------------------------------------------------------------------
+      # Pre-calculate values for taxonomy analysis - split by taxonomic levels
+      # --------------------------------------------------------------------------
+      print(paste0("INFO - split taxonomy by taxonomic levels - ", Sys.time()))
+      # Split taxonomy by levels
+      reactives$taxonomy_data <- 
+        apply(reactives$featuredata_taxonomy, 1, function(x)
+          unlist(strsplit(x, split = ";|,")))
+      # Iterate over vector items, apply the unique colname to them, rbind all
+      reactives$taxonomy_data <- data.frame(
+        do.call(rbind, lapply(reactives$taxonomy_data, "[", 
+                              unique(unlist(c(sapply(reactives$taxonomy_data, 
+                                                     names)))))))
+      # Prevent a bug when there is only one taxonomic level in some annotations
+      if(any(colnames(reactives$taxonomy_data) == "Taxonomy") && 
+         any(colnames(reactives$taxonomy_data) == "NA.")) {
+        reactives$taxonomy_data$Taxonomy[is.na(reactives$taxonomy_data$Taxonomy)] <- 
+          reactives$taxonomy_data$NA.[!is.na(reactives$taxonomy_data$NA.)]
+        reactives$taxonomy_data$NA. <- NULL
+      }
+      colnames(reactives$taxonomy_data) <- 
+        c("Domain", "Phylum", "Class", "Order", "Family", "Genus", 
+          "Species")[1:length(colnames(reactives$taxonomy_data))]
+      # Replace NA and empty values
+      reactives$taxonomy_data[is.na(reactives$taxonomy_data)] <- "no_Annotation"
+      reactives$taxonomy_data[reactives$taxonomy_data == ""] <- "no_Annotation"
     }
-    
-    # --------------------------------------------------------------------------
-    # Pre-calculate values for alpha diversity analysis
-    # --------------------------------------------------------------------------
-    # Define alpha diversity indices
-    Richness.function <- function(x) {sum(x > 0)}
-    Shannon.function <- function(x) {
-      -sum(scale(x, center = FALSE, scale = sum(x))*
-             log(scale(x, center = FALSE, scale = sum(x))), na.rm = TRUE)
-    }
-    InvSimpson.function <- function(x) {
-      1/(sum((scale(x, center = FALSE, scale = sum(x)))^2))
-    }
-    Simpson.function <- function(x) {
-      sum((scale(x, center = FALSE, scale = sum(x)))^2)
-    }
-    Evenness.function <- function(x) {
-      (-sum(scale(x, center = FALSE, scale = sum(x)) *
-              log(scale(x, center = FALSE, scale = sum(x))), na.rm = TRUE)) /
-        log(sum(x > 0))
-    }
-    # Calculate alpha diversity indices for current metadata
-    reactives$alpha_diversity_values <- data.frame(
-      Richness = apply(reactives$featuredata_current, 2, Richness.function),
-      Shannon = apply(reactives$featuredata_current, 2, Shannon.function),
-      Inv.Simpson = apply(reactives$featuredata_current, 2, InvSimpson.function),
-      Simpson = apply(reactives$featuredata_current, 2, Simpson.function),
-      Evenness = apply(reactives$featuredata_current, 2, Evenness.function))
-    rownames(reactives$alpha_diversity_values) <- 
-      colnames(reactives$featuredata_current)
-    
-    # --------------------------------------------------------------------------
-    # Pre-calculate values for taxonomy analysis
-    # --------------------------------------------------------------------------
-    # Split taxonomy by levels
-    reactives$taxonomy_data <- 
-      apply(reactives$featuredata_taxonomy, 1, function(x)
-      unlist(strsplit(x, split = ";|,")))
-    # Iterate over vector items, apply the unique colname to them, rbind all
-    reactives$taxonomy_data <- data.frame(
-      do.call(rbind, lapply(reactives$taxonomy_data, "[", 
-                            unique(unlist(c(sapply(reactives$taxonomy_data, 
-                                                   names)))))))
-    colnames(reactives$taxonomy_data) <- 
-      c("Domain", "Phylum", "Class", "Order", "Family", "Genus", 
-        "Species")[1:length(colnames(reactives$taxonomy_data))]
-    # Replace NA and empty values
-    reactives$taxonomy_data[is.na(reactives$taxonomy_data)] <- "no_Annotation"
-    reactives$taxonomy_data[reactives$taxonomy_data == ""] <- "no_Annotation"
     
     # ------------------------------------------------------------------------
     # Provide information for visualisation and build filtering plots
@@ -507,7 +529,6 @@ server <- function(input, output, session) {
       data_to_plot <- data.frame(
         reads = colSums(reactives$featuredata_current),
         features = apply(reactives$featuredata_current, 2, function(x) sum(x > 0)))
-      print(str(data_to_plot))
       output$plot <- renderPlotly({
         ggplot(data = data_to_plot, aes(x = reads, y = features)) +
           geom_point()
@@ -519,7 +540,6 @@ server <- function(input, output, session) {
       data_to_plot <- merge(data_to_plot, data.frame(
         reads_now = rowSums(reactives$featuredata_current)), by = 0, all = TRUE)
       data_to_plot[is.na(data_to_plot)] <- 0
-      print(str(data_to_plot))
       output$plot <- renderPlotly({
         ggplot(data = data_to_plot, aes(x = reads_before, y = reads_now)) +
           geom_point() +
@@ -529,7 +549,7 @@ server <- function(input, output, session) {
     if(input$visualization_type == "Contamination removal - NEG1" ||
        input$visualization_type == "Contamination removal - NEG2") {
       if(reactives$step_var != 5) {
-        showModal(modalDialog(title = "Error", "Please wait for contaminant
+        showModal(modalDialog(title = "Warning 1", "Please wait for contaminant
                               removal analysis."))
         updateSelectInput(session, inputId = "visualization_type",
                           selected = "Correlation of reads and features")
@@ -579,15 +599,11 @@ server <- function(input, output, session) {
                          sum_of_reads_function(reactives$featuredata_3),
                          sum_of_reads_function(reactives$featuredata_4),
                          sum_of_reads_function(reactives$featuredata_5)))
-      print(str(data_to_plot))
       output$plot <- renderPlotly({
         ggplot(data = data_to_plot, aes(x = step, y = sum_of_reads)) +
           geom_bar(stat = "identity")
       }) 
     }
-    print("ROWNAMES")
-    print(rownames(reactives$featuredata_current))
-    print(rownames(reactives$metadata_current))
     # Save current input:
     reactives$req_reads_per_sample_old <- input$req_reads_per_sample
     reactives$req_reads_per_feature_old <- input$req_reads_per_feature
@@ -602,6 +618,7 @@ server <- function(input, output, session) {
   # Update button
   # ----------------------------------------------------------------------------
   observeEvent(input$update_button, {
+    print(paste0("INFO - update plot - ", Sys.time()))
     filter_feature_table(input$req_reads_per_sample,
                          input$req_reads_per_feature,
                          input$req_ratio_per_feature,
@@ -618,8 +635,8 @@ server <- function(input, output, session) {
   # Next button
   # ----------------------------------------------------------------------------
   observeEvent(input$next_button, {
-    print(paste0("INFO|server::nextstep",Sys.time()))
     reactives$step_var <- reactives$step_var + 1
+    print(paste0("INFO - next to step ", reactives$step_var, " - ", Sys.time()))
     filter_feature_table(input$req_reads_per_sample,
                          input$req_reads_per_feature,
                          input$req_ratio_per_feature,
@@ -627,22 +644,23 @@ server <- function(input, output, session) {
                          input$req_span_neg1,
                          input$req_ratio_neg2,
                          input$req_span_neg2)
-    showModal(modalDialog(title = "Info", paste0("next_button", reactives$step_var)))
     step_var_UIchange()
+    shinyjs::hide("text")
+    shinyjs::hide("table")
+    output$table <- NULL
   })
 
   # ----------------------------------------------------------------------------
   # Back button
   # ----------------------------------------------------------------------------
   observeEvent(input$back_button, {
-    print(paste0("INFO|server::backstep",Sys.time()))
     # Delete the previous feature and metadata
     eval(parse(text = paste0("reactives$featuredata_", reactives$step_var, 
                              " <- NA")))
     eval(parse(text = paste0("reactives$metadata_", reactives$step_var, 
                              " <- NA")))
     reactives$step_var <- reactives$step_var - 1
-    showModal(modalDialog(title = "Info", paste0("back_button", reactives$step_var)))
+    print(paste0("INFO - back to step ", reactives$step_var, " - ", Sys.time()))
     step_var_UIchange()
   })
   
@@ -650,6 +668,8 @@ server <- function(input, output, session) {
   # Step_var_change function: build UI (and disable buttons depending on step)
   # ----------------------------------------------------------------------------
   step_var_UIchange <- function(){
+    print(paste0("INFO - change UI for step ", reactives$step_var, " - ", 
+                 Sys.time()))
     if(reactives$step_var == 1){
       shinyjs::enable("metafile")
       shinyjs::enable("featurefile")
@@ -748,7 +768,7 @@ server <- function(input, output, session) {
                         choices = c("ignore", colnames(reactives$metadata_current))),
             radioButtons(inputId = "scaling", 
                          label = "Y axis scaling",
-                         choices = c("Z-normalized values", "Raw values")),
+                         choices = c("Raw values", "Z-normalized values")),
             actionButton(inputId = "alpha_analysis", 
                          label = "Update plot")
           )
@@ -787,7 +807,7 @@ server <- function(input, output, session) {
                          value = 10, min = 1, max = 20, step = 1),
             radioButtons(inputId = "per_group_overall", 
                          label = "Top number of taxa based on", 
-                         choices = c("Per group", "Overall")),
+                         choices = c("Overall", "Per group")),
             actionButton(inputId = "tax_analysis", 
                          label = "Update plot")
           )
@@ -820,7 +840,7 @@ server <- function(input, output, session) {
   observeEvent(input$tabset, {
     if(reactives$step_var == 6 && input$tabset == "Filtering") {
       showModal(modalDialog(
-        title="Are you sure?",
+        title = "Are you sure?",
         "Returning to filtering may overwrite your final filtered files",
         footer = tagList(actionButton("refilter_button", "Go back to filtering"),
                          modalButton("Stay on analysis site"))
@@ -829,7 +849,7 @@ server <- function(input, output, session) {
     }
     if(reactives$step_var == 5 && input$tabset != "Filtering") {
       showModal(modalDialog(
-        title="Are you sure?",
+        title = "Are you sure?",
         "Returning to analysis will not save the changes you made in filtering.
         If you want to save the changes and overwrite your final filtered files,
         press the 'Next' button at the bottom of the page.",
@@ -858,7 +878,7 @@ server <- function(input, output, session) {
   # Alpha diversity analysis
   # ----------------------------------------------------------------------------
   observeEvent(input$alpha_analysis, {
-    print(paste0("INFO|server::alpha_diversity",Sys.time()))
+    print(paste0("INFO - alpha diversity analysis - ", Sys.time()))
     # Filter feature and metadata according to sample selection
     samples_deselected <- Sample_selection_check()
     Metadata <- 
@@ -869,7 +889,6 @@ server <- function(input, output, session) {
       reactives$alpha_diversity_values[!rownames(reactives$metadata_current) %in% 
                                          samples_deselected ,]
     # Perform z-transformation if needed
-    print(str(alpha_diversity_result))
     if (input$scaling == "Z-normalized values") {
       alpha_diversity_result <- 
         as.data.frame(apply(alpha_diversity_result, 2, function(x)
@@ -954,7 +973,7 @@ server <- function(input, output, session) {
   observeEvent(input$subvar_alpha, {
     if(input$subvar_alpha == input$metavar_alpha) {
       showModal(modalDialog(
-        title = "Error10", "Please choose a second variable for alpha diversity
+        title = "Warning 3", "Please choose a second variable for alpha diversity
         that is different from your main variable."))
       updateSelectInput(session, inputId = "subvar_alpha", selected = "ignore")
     }
@@ -964,7 +983,7 @@ server <- function(input, output, session) {
   # Beta diversity analysis
   # ----------------------------------------------------------------------------
   observeEvent(input$beta_analysis, {
-    print(paste0("INFO|server::beta_diversity",Sys.time()))
+    print(paste0("INFO - beta diversity analysis - ", Sys.time()))
     # Filter feature and metadata according to sample selection
     samples_deselected <- Sample_selection_check()
     Metadata <- 
@@ -1024,7 +1043,7 @@ server <- function(input, output, session) {
   # Taxonomy analysis
   # ----------------------------------------------------------------------------
   observeEvent(input$tax_analysis, {
-    print(paste0("INFO|server::taxnonomy",Sys.time()))
+    print(paste0("INFO - taxonomy analysis - ", Sys.time()))
     # Filter feature and metadata according to sample selection
     samples_deselected <- Sample_selection_check()
     Metadata <- 
@@ -1049,7 +1068,7 @@ server <- function(input, output, session) {
       updateNumericInput(session, inputId = "top_number_taxa", 
                          value = nrow(Taxonomy_data))
       showModal(modalDialog(
-        title = "Warning", 
+        title = "Warning 4", 
         paste0("There are only ", nrow(Taxonomy_data), " different taxa at ", 
                input$taxonomy_level, " level. The top number of taxa displayed 
                is set to ", nrow(Taxonomy_data), ".")))
@@ -1072,7 +1091,6 @@ server <- function(input, output, session) {
       group_by(.data[[metavar_taxonomy]]) %>%
       summarise(across(.cols = is.numeric, .fns = mean, .names = "{col}")) %>%
       as.data.frame()
-    print(head(Taxonomy_data))
     # Select top taxa per group or overall
     if(input$per_group_overall == "Overall") {
       Top_taxa <- Taxonomy_data %>%
@@ -1094,16 +1112,13 @@ server <- function(input, output, session) {
       rowSums() %>% 
       data.frame
     colnames(Taxonomy_others) <- "Others"
-    print(colSums(Taxonomy_others))
+    # Prevent showing an empty "Others" category in the plot
     if(colSums(Taxonomy_others) != 0) {
       Taxonomy_data <- merge(Taxonomy_data[, c(metavar_taxonomy, Top_taxa)], 
                              Taxonomy_others, by = 0, all = TRUE)
     }
     # Plot the result
-    print(Top_taxa)
-    print(Taxonomy_data)
     Taxonomy_data <- melt(Taxonomy_data)
-    print(head(Taxonomy_data))
     output$plot <- renderPlotly({
       ggplot(data = Taxonomy_data, aes(x = 1, y = value, fill = variable)) +
         geom_bar(position = "fill", stat = "identity") +
@@ -1117,7 +1132,7 @@ server <- function(input, output, session) {
   observeEvent(input$taxonomy_level, {
     if(!(input$taxonomy_level %in% colnames(reactives$taxonomy_data))) {
       showModal(modalDialog(
-        title = "Error11", paste0("It seems that your taxonomic annotation does 
+        title = "Warning 5", paste0("It seems that your taxonomic annotation does 
         not provide information on ", input$taxonomy_level, " level. Please 
         select a lower taxonomic level for analysis.")))
       updateRadioButtons(session, inputId = "taxonomy_level", 
@@ -1129,6 +1144,7 @@ server <- function(input, output, session) {
   # Sample_selection_check returns deselected sample names from Sample selection
   # ----------------------------------------------------------------------------
   Sample_selection_check <- function() {
+    print(paste0("INFO - Sample selection check - ", Sys.time()))
     samples_deselected <- rownames(reactives$metadata_current)[sort(
       unique(unlist(sapply(colnames(reactives$metadata_current), function(x) {
         which(!reactives$metadata_current[, x] %in% 
@@ -1136,12 +1152,10 @@ server <- function(input, output, session) {
       }
       )))
     )]
-    print("SAMPLE SELECTION CHECK")
     # Check that the user does not deselect all samples
-    if (length(samples_deselected) == 
-        length(rownames(reactives$metadata_current))) {
+    if (length(samples_deselected) == nrow(reactives$metadata_current)) {
       showModal(modalDialog(
-        title = "Warning12", "It seems that you deselected all samples. Sample
+        title = "Warning 2", "It seems that you deselected all samples. Sample
         selection is set back, and all samples are selected for analysis."))
       lapply(colnames(reactives$metadata_current), function(x) {
         updatePickerInput(session, inputId = paste0("sampleselector_", x),
@@ -1149,6 +1163,9 @@ server <- function(input, output, session) {
       }) # Close lapply function
       samples_deselected <- c()
     }
+    print(paste0("INFO - ", 
+                 nrow(reactives$metadata_current) - length(samples_deselected), 
+                 " samples selected for analysis"))
     return(samples_deselected)
   }
 }
