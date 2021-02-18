@@ -124,7 +124,9 @@ ui <- fluidPage(
     
     # Show a plot and a table in the main panel
     mainPanel(
-      plotlyOutput("plot")
+      plotlyOutput("plot"),
+      textOutput("text"),
+      DT::dataTableOutput("table")
     )
   )
 )
