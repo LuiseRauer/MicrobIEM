@@ -32,6 +32,8 @@ server <- function(input, output, session) {
                               req_ratio_per_feature_old = 0,
                               req_ratio_neg1_old = Inf, req_span_neg1_old = 0.0001,
                               req_ratio_neg2_old = Inf, req_span_neg2_old = 0.0001,
+                              neg1_span_steps = NA, req_span_neg1 = NA,
+                              neg2_span_steps = NA, req_span_neg2 = NA,
                               analysis_started = FALSE)
   
   # Hide buttons and input fields in the beginning
@@ -41,10 +43,10 @@ server <- function(input, output, session) {
   shinyjs::hide("req_ratio_per_feature")
   shinyjs::hide("header_neg1")
   shinyjs::hide("req_ratio_neg1")
-  shinyjs::hide("req_span_neg1")
+  #shinyjs::hide("req_span_neg1")
   shinyjs::hide("header_neg2")
   shinyjs::hide("req_ratio_neg2")
-  shinyjs::hide("req_span_neg2")
+  #shinyjs::hide("req_span_neg2")
   shinyjs::hide("update_button")
   shinyjs::hide("back_button")
   shinyjs::hide("next_button")
@@ -171,6 +173,15 @@ server <- function(input, output, session) {
         reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
                                    sample_types_allowed[4]), "Sample_ID"]
       reactives$featuredata_neg1 <- reactives$featuredata[, ID_NEG1, drop = FALSE]
+      # Create span UI values and default value for NEG1
+      neg1_span_values <- seq(1, ncol(reactives$featuredata_neg1))
+      reactives$neg1_span_steps <- setNames(
+        c(0.0001, neg1_span_values/length(neg1_span_values)), 
+        nm = c("ignore", paste0(neg1_span_values, " (",
+                    round(neg1_span_values/length(neg1_span_values)*100, 0), 
+                    "%)")))
+      reactives$req_span_neg1 <- reactives$neg1_span_steps[1]
+      reactives$req_span_neg1_old <- reactives$req_span_neg1
       # Subset NEG2 control samples 
       ID_NEG2 <- 
         reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
@@ -179,6 +190,15 @@ server <- function(input, output, session) {
       print(paste0("INFO - detected ", length(ID_SAMPLE), " real samples, ",
                    length(ID_NEG1), " NEG1 controls, and ",
                    length(ID_NEG2), " NEG2 controls in the data."))
+      # Create span UI values and default value for NEG2
+      neg2_span_values <- seq(1, ncol(reactives$featuredata_neg2))
+      reactives$neg2_span_steps <- setNames(
+        c(0.0001, neg2_span_values/length(neg2_span_values)), 
+        nm = c("ignore", paste0(neg2_span_values, " (",
+                                round(neg2_span_values/length(neg2_span_values)*100, 0), 
+                                "%)")))
+      reactives$req_span_neg2 <- reactives$neg2_span_steps[1]
+      reactives$req_span_neg2_old <- reactives$req_span_neg2
       
       # ------------------------------------------------------------------------
       # Proceed one step and start the filtering 
@@ -188,9 +208,9 @@ server <- function(input, output, session) {
                            input$req_reads_per_feature,
                            input$req_ratio_per_feature,
                            input$req_ratio_neg1,
-                           input$req_span_neg1,
+                           reactives$req_span_neg1,
                            input$req_ratio_neg2,
-                           input$req_span_neg2)
+                           reactives$req_span_neg2)
       # Make buttons appear
       step_var_UIchange()
       shinyjs::show("update_button")
@@ -299,9 +319,9 @@ server <- function(input, output, session) {
     # --------------------------------------------------------------------------
     if(reactives$step_var == 5 ||
        reactives$req_ratio_neg1_old != input$req_ratio_neg1 ||
-       reactives$req_span_neg1_old != input$req_span_neg1 ||
+       reactives$req_span_neg1_old != reactives$req_span_neg1 ||
        reactives$req_ratio_neg2_old != input$req_ratio_neg2 ||
-       reactives$req_span_neg2_old != input$req_span_neg2) {
+       reactives$req_span_neg2_old != reactives$req_span_neg2) {
       print(paste0("INFO - filtering step 5 - remove contaminants - ", 
                    Sys.time()))
       # Convert current filtered feature table to frequencies
@@ -335,24 +355,24 @@ server <- function(input, output, session) {
         reactives$filter_basis$neg2_mean / reactives$filter_basis$sample_mean
       # Apply filter criteria and return Sample IDs that should be removed
       if(as.numeric(input$req_ratio_neg1) == Inf && 
-         as.numeric(input$req_span_neg1) != 0.0001) {
+         as.numeric(reactives$req_span_neg1) != 0.0001) {
         feature_removed_neg1 <- reactives$filter_basis %>%
-          filter(neg1_span >= as.numeric(input$req_span_neg1)) %>%
+          filter(neg1_span >= as.numeric(reactives$req_span_neg1)) %>%
           rownames()
       } else {
         feature_removed_neg1 <- reactives$filter_basis %>%
-          filter(neg1_span >= as.numeric(input$req_span_neg1)) %>%
+          filter(neg1_span >= as.numeric(reactives$req_span_neg1)) %>%
           filter(ratio_neg1 > as.numeric(input$req_ratio_neg1)) %>%
           rownames()
       }
       if(as.numeric(input$req_ratio_neg2) == Inf && 
-         as.numeric(input$req_span_neg2) != 0.0001) {
+         as.numeric(reactives$req_span_neg2) != 0.0001) {
         feature_removed_neg2 <- reactives$filter_basis %>%
-          filter(neg2_span >= as.numeric(input$req_span_neg2)) %>%
+          filter(neg2_span >= as.numeric(reactives$req_span_neg2)) %>%
           rownames()
       } else {
         feature_removed_neg2 <- reactives$filter_basis %>%
-          filter(neg2_span >= as.numeric(input$req_span_neg2)) %>%
+          filter(neg2_span >= as.numeric(reactives$req_span_neg2)) %>%
           filter(ratio_neg2 > as.numeric(input$req_ratio_neg2)) %>%
           rownames()
       }
@@ -456,11 +476,11 @@ server <- function(input, output, session) {
         "", "Frequency mean ratio (NEG1 by SAMPLE):", 
         names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg1]),
         "", "Span threshold (NEG1):", 
-        names(neg_span_steps[neg_span_steps == input$req_span_neg1]),
+        names(neg_span_steps[neg_span_steps == reactives$req_span_neg1]),
         "", "Frequency mean ratio (NEG2 by SAMPLE):", 
         names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg2]),
         "", "Span threshold (NEG2)", 
-        names(neg_span_steps[neg_span_steps == input$req_span_neg2])), 
+        names(neg_span_steps[neg_span_steps == reactives$req_span_neg2])), 
         sep = " "), paste0(reactives$output_dir, "/output/Filter_criteria.txt"))
       
       # --------------------------------------------------------------------------
@@ -555,33 +575,50 @@ server <- function(input, output, session) {
                           selected = "Correlation of reads and features")
       } else {
         if(input$visualization_type == "Contamination removal - NEG1") {
+          req_span_neg1 <- reactives$req_span_neg1
+          req_ratio_neg1 <- input$req_ratio_neg1
           contamination_plot <- 
             ggplot(data = reactives$filter_basis, 
                    aes(x = ratio_neg1, y = neg1_span, size = sample_mean)) +
             geom_point() +
             scale_x_log10()
-          if(as.numeric(input$req_span_neg1) != 0.0001) {
+          if(as.numeric(req_span_neg1) != 0.0001) {
             contamination_plot <- contamination_plot +
               geom_hline(aes(alpha = "Span_threshold", 
-                              yintercept = as.numeric(input$req_span_neg1))) +
+                              yintercept = as.numeric(req_span_neg1))) +
               scale_alpha_manual(values = 1)
           }
-          if(as.numeric(input$req_ratio_neg1) != Inf) {
+          if(as.numeric(req_ratio_neg1) != Inf) {
             contamination_plot <- contamination_plot +
               geom_vline(aes(linetype = "Ratio_threshold",
-                             xintercept = as.numeric(input$req_ratio_neg1)))
+                             xintercept = as.numeric(req_ratio_neg1)))
           }
           output$plot <- renderPlotly({
             contamination_plot
           })
         }
         if(input$visualization_type == "Contamination removal - NEG2") {
-          output$plot <- renderPlotly({
+          req_span_neg2 <- reactives$req_span_neg2
+          req_ratio_neg2 <- input$req_ratio_neg2
+          contamination_plot <- 
             ggplot(data = reactives$filter_basis, 
                    aes(x = ratio_neg2, y = neg2_span, size = sample_mean)) +
               geom_point() +
               scale_x_log10()
-          })
+          if(as.numeric(req_span_neg2) != 0.0001) {
+            contamination_plot <- contamination_plot +
+              geom_hline(aes(alpha = "Span_threshold", 
+                             yintercept = as.numeric(req_span_neg2))) +
+              scale_alpha_manual(values = 1)
+          }
+          if(as.numeric(req_ratio_neg2) != Inf) {
+            contamination_plot <- contamination_plot +
+              geom_vline(aes(linetype = "Ratio_threshold",
+                             xintercept = as.numeric(req_ratio_neg2)))
+          }
+          output$plot <- renderPlotly({
+            contamination_plot
+          })          
         }
       }
     }
@@ -609,10 +646,20 @@ server <- function(input, output, session) {
     reactives$req_reads_per_feature_old <- input$req_reads_per_feature
     reactives$req_ratio_per_feature_old <- input$req_ratio_per_feature
     reactives$req_ratio_neg1_old <- input$req_ratio_neg1
-    reactives$req_span_neg1_old <- input$req_span_neg1
+    reactives$req_span_neg1_old <- reactives$req_span_neg1
     reactives$req_ratio_neg2_old <- input$req_ratio_neg2
-    reactives$req_span_neg2_old <- input$req_span_neg2
+    reactives$req_span_neg2_old <- reactives$req_span_neg2
   }
+  
+  # ----------------------------------------------------------------------------
+  # Changed input in span filter
+  # ----------------------------------------------------------------------------
+  observeEvent(input$req_span_neg1, {
+    reactives$req_span_neg1 <- input$req_span_neg1
+  })
+  observeEvent(input$req_span_neg2, {
+    reactives$req_span_neg2 <- input$req_span_neg2
+  })
   
   # ----------------------------------------------------------------------------
   # Update button
@@ -623,9 +670,9 @@ server <- function(input, output, session) {
                          input$req_reads_per_feature,
                          input$req_ratio_per_feature,
                          input$req_ratio_neg1,
-                         input$req_span_neg1,
+                         reactives$req_span_neg1,
                          input$req_ratio_neg2,
-                         input$req_span_neg2)
+                         reactives$req_span_neg2)
     shinyjs::hide("text")
     shinyjs::hide("table")
     output$table <- NULL
@@ -641,9 +688,9 @@ server <- function(input, output, session) {
                          input$req_reads_per_feature,
                          input$req_ratio_per_feature,
                          input$req_ratio_neg1,
-                         input$req_span_neg1,
+                         reactives$req_span_neg1,
                          input$req_ratio_neg2,
-                         input$req_span_neg2)
+                         reactives$req_span_neg2)
     step_var_UIchange()
     shinyjs::hide("text")
     shinyjs::hide("table")
@@ -679,10 +726,8 @@ server <- function(input, output, session) {
       shinyjs::hide("req_ratio_per_feature")
       shinyjs::hide("header_neg1") 
       shinyjs::hide("req_ratio_neg1")
-      shinyjs::hide("req_span_neg1")
       shinyjs::hide("header_neg2")
       shinyjs::hide("req_ratio_neg2")
-      shinyjs::hide("req_span_neg2")
     }
     if(reactives$step_var == 2){
       shinyjs::disable("metafile")
@@ -694,10 +739,8 @@ server <- function(input, output, session) {
       shinyjs::hide("req_ratio_per_feature")
       shinyjs::hide("header_neg1") 
       shinyjs::hide("req_ratio_neg1")
-      shinyjs::hide("req_span_neg1")
       shinyjs::hide("header_neg2")
       shinyjs::hide("req_ratio_neg2")
-      shinyjs::hide("req_span_neg2")
     }
     if(reactives$step_var == 3) {
       shinyjs::disable("metafile")
@@ -708,10 +751,8 @@ server <- function(input, output, session) {
       shinyjs::hide("req_ratio_per_feature")
       shinyjs::hide("header_neg1") 
       shinyjs::hide("req_ratio_neg1")
-      shinyjs::hide("req_span_neg1")
       shinyjs::hide("header_neg2")
       shinyjs::hide("req_ratio_neg2")
-      shinyjs::hide("req_span_neg2")
     }
     if(reactives$step_var == 4) {
       shinyjs::disable("metafile")
@@ -720,13 +761,12 @@ server <- function(input, output, session) {
       shinyjs::disable("req_reads_per_feature")
       shinyjs::show("req_ratio_per_feature")
       shinyjs::enable("req_ratio_per_feature")
-      shinyjs::hide("placeholder") # NEWLINE
       shinyjs::hide("header_neg1") 
       shinyjs::hide("req_ratio_neg1")
-      shinyjs::hide("req_span_neg1")
+      shinyjs::hide("placeholder_span_1")
       shinyjs::hide("header_neg2")
       shinyjs::hide("req_ratio_neg2")
-      shinyjs::hide("req_span_neg2")
+      shinyjs::hide("placeholder_span_2")
     }
     if(reactives$step_var == 5) {
       shinyjs::disable("metafile")
@@ -734,19 +774,20 @@ server <- function(input, output, session) {
       shinyjs::disable("req_reads_per_sample") 
       shinyjs::disable("req_reads_per_feature")
       shinyjs::disable("req_ratio_per_feature")
-      # NEWLINE :
-      shinyjs::show("placeholder") # NEWLINE
-      insertUI(selector = "#placeholder",
-               ui = selectInput(inputId = "test_ID",
-                                label = "Some value",		
-                                choices = seq(0:ncol(reactives$featuredata_neg1))))
-      
       shinyjs::show("header_neg1") 
       shinyjs::show("req_ratio_neg1")
-      shinyjs::show("req_span_neg1")
+      shinyjs::show("placeholder_span_1")
+      insertUI(selector = "#placeholder_span_1",
+               ui = selectInput(inputId = "req_span_neg1",
+                                label = "Minimum span threshold (NEG1)",		
+                                choices = reactives$neg1_span_steps))
       shinyjs::show("header_neg2")
       shinyjs::show("req_ratio_neg2")
-      shinyjs::show("req_span_neg2")
+      shinyjs::show("placeholder_span_2")
+      insertUI(selector = "#placeholder_span_2",
+               ui = selectInput(inputId = "req_span_neg2",
+                                label = "Minimum span threshold (NEG2)",		
+                                choices = reactives$neg2_span_steps))
     }
     
     # --------------------------------------------------------------------------
