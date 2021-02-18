@@ -98,7 +98,7 @@ ui <- fluidPage(
                       label = "Frequency mean ratio (NEG1/SAMPLE)",		
                       choices = neg_ratio_steps),
           selectInput(inputId = "req_span_neg1", 
-                      label = "Span threshold (NEG1)",
+                      label = "Minimum span threshold (NEG1)",
                       choices = neg_span_steps),
           
           # Choose parameters for contamination filter - NEG2
@@ -107,7 +107,7 @@ ui <- fluidPage(
                       label = "Frequency mean ratio (NEG2/SAMPLE)",		
                       choices = neg_ratio_steps),
           selectInput(inputId = "req_span_neg2", 
-                      label = "Span threshold (NEG2)",
+                      label = "Minimum span threshold (NEG2)",
                       choices = neg_span_steps),
           
           # -------------------------------------------------------------------
