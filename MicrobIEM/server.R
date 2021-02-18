@@ -15,7 +15,7 @@ sample_types_allowed <- c("SAMPLE", "POS1", "POS2", "NEG1", "NEG2")
 # ------------------------------------------------------------------------------
 
 server <- function(input, output, session) {
-  
+
   # Define reactive values (count steps etc.)
   reactives <- reactiveValues(step_var = 1, output_dir = NA,
                               metadata = NA, featuredata = NA,
@@ -31,7 +31,8 @@ server <- function(input, output, session) {
                               req_reads_per_feature_old = "1",
                               req_ratio_per_feature_old = 0,
                               req_ratio_neg1_old = Inf, req_span_neg1_old = 0.0001,
-                              req_ratio_neg2_old = Inf, req_span_neg2_old = 0.0001)
+                              req_ratio_neg2_old = Inf, req_span_neg2_old = 0.0001,
+                              analysis_started = FALSE)
   
   # Hide buttons and input fields in the beginning
   shinyjs::hide("visualization_type")
@@ -59,6 +60,7 @@ server <- function(input, output, session) {
     } else {
       reactives$metadata <- read.csv(input$metafile$datapath, sep = "\t", 
                                      header = TRUE, check.names = FALSE)
+      reactives$metadata[] <- lapply(reactives$metadata, as.character)
       colnames_md <- colnames(reactives$metadata)
       # Check for columns Sample_ID and Sample_type
       if (colnames_md[1] != "Sample_ID" || !("Sample_type" %in% colnames_md)) {
@@ -117,7 +119,7 @@ server <- function(input, output, session) {
   # Define the file_open_success function
   # ----------------------------------------------------------------------------
   file_open_success <- function() {
-    print("Start open_success_function")
+    print(paste0("INFO - file_open_success started - ", Sys.time()))
     sample_names_md <- reactives$metadata[, "Sample_ID"]
     sample_names_fd <- head(colnames(reactives$featuredata)[-1], -1)
     # If sample names match in feature file and meta file, start filtering
@@ -163,17 +165,15 @@ server <- function(input, output, session) {
       reactives$metadata_1 <- 
         reactives$metadata[reactives$metadata$Sample_ID %in% ID_SAMPLE, ]
       # Subset NEG1 control samples
-      # ADD CHECK IF THERE ARE NEG1 SAMPLES!
       ID_NEG1 <- 
         reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
                                    sample_types_allowed[4]), "Sample_ID"]
-      reactives$featuredata_neg1 <- reactives$featuredata[, ID_NEG1]
+      reactives$featuredata_neg1 <- reactives$featuredata[, ID_NEG1, drop = FALSE]
       # Subset NEG2 control samples 
-      # ADD CHECK IF THERE ARE NEG2 SAMPLES!
       ID_NEG2 <- 
         reactives$metadata[which(reactives$metadata[, "Sample_type"] == 
                                    sample_types_allowed[5]), "Sample_ID"]
-      reactives$featuredata_neg2 <- reactives$featuredata[, ID_NEG2]
+      reactives$featuredata_neg2 <- reactives$featuredata[, ID_NEG2, drop = FALSE]
       
       # ------------------------------------------------------------------------
       # Proceed one step and start the filtering 
@@ -298,12 +298,13 @@ server <- function(input, output, session) {
       # Calculate sample mean per feature
       sample_mean <- data.frame(sample_mean = rowMeans(featuredata_4_freq))
       # Transform neg1-data to frequencies and calculate mean/span per feature
-      # ADD CHECKS FOR NEG1/NEG2 IF THEY EXIST!
       neg1_mean <- 
         rowMeans(t(decostand(t(reactives$featuredata_neg1), method = "total")))
       neg1_span <- 
         apply(reactives$featuredata_neg1, 1, function(x) sum(x > 0)/length(x))
       # Transform neg2-data to frequencies and calculate mean/span per feature
+      print(reactives$featuredata_neg2)
+      print(str(reactives$featuredata_neg2))
       neg2_mean <-  
         rowMeans(t(decostand(t(reactives$featuredata_neg2), method = "total")))
       neg2_span <- 
@@ -449,6 +450,7 @@ server <- function(input, output, session) {
         names(neg_span_steps[neg_span_steps == input$req_span_neg2])), 
         sep = " "), paste0(reactives$output_dir, "/output/Filter_criteria.txt"))
     }
+    
     # --------------------------------------------------------------------------
     # Pre-calculate values for alpha diversity analysis
     # --------------------------------------------------------------------------
@@ -478,6 +480,7 @@ server <- function(input, output, session) {
       Evenness = apply(reactives$featuredata_current, 2, Evenness.function))
     rownames(reactives$alpha_diversity_values) <- 
       colnames(reactives$featuredata_current)
+    
     # --------------------------------------------------------------------------
     # Pre-calculate values for taxonomy analysis
     # --------------------------------------------------------------------------
@@ -519,7 +522,8 @@ server <- function(input, output, session) {
       print(str(data_to_plot))
       output$plot <- renderPlotly({
         ggplot(data = data_to_plot, aes(x = reads_before, y = reads_now)) +
-          geom_point()
+          geom_point() +
+          scale_x_log10() + scale_y_log10()
       }) 
     }
     if(input$visualization_type == "Contamination removal - NEG1" ||
@@ -594,6 +598,9 @@ server <- function(input, output, session) {
     reactives$req_span_neg2_old <- input$req_span_neg2
   }
   
+  # ----------------------------------------------------------------------------
+  # Update button
+  # ----------------------------------------------------------------------------
   observeEvent(input$update_button, {
     filter_feature_table(input$req_reads_per_sample,
                          input$req_reads_per_feature,
@@ -602,8 +609,14 @@ server <- function(input, output, session) {
                          input$req_span_neg1,
                          input$req_ratio_neg2,
                          input$req_span_neg2)
+    shinyjs::hide("text")
+    shinyjs::hide("table")
+    output$table <- NULL
   })
   
+  # ----------------------------------------------------------------------------
+  # Next button
+  # ----------------------------------------------------------------------------
   observeEvent(input$next_button, {
     print(paste0("INFO|server::nextstep",Sys.time()))
     reactives$step_var <- reactives$step_var + 1
@@ -614,19 +627,28 @@ server <- function(input, output, session) {
                          input$req_span_neg1,
                          input$req_ratio_neg2,
                          input$req_span_neg2)
-    showModal(modalDialog(title = "BLA", paste0("next_button", reactives$step_var)))
+    showModal(modalDialog(title = "Info", paste0("next_button", reactives$step_var)))
     step_var_UIchange()
-    print(paste0("OBJECT SIZE: ", object.size(reactives)))
   })
 
+  # ----------------------------------------------------------------------------
+  # Back button
+  # ----------------------------------------------------------------------------
   observeEvent(input$back_button, {
     print(paste0("INFO|server::backstep",Sys.time()))
+    # Delete the previous feature and metadata
+    eval(parse(text = paste0("reactives$featuredata_", reactives$step_var, 
+                             " <- NA")))
+    eval(parse(text = paste0("reactives$metadata_", reactives$step_var, 
+                             " <- NA")))
     reactives$step_var <- reactives$step_var - 1
-    showModal(modalDialog(title = "BLA", paste0("back_button", reactives$step_var)))
+    showModal(modalDialog(title = "Info", paste0("back_button", reactives$step_var)))
     step_var_UIchange()
   })
   
+  # ----------------------------------------------------------------------------
   # Step_var_change function: build UI (and disable buttons depending on step)
+  # ----------------------------------------------------------------------------
   step_var_UIchange <- function(){
     if(reactives$step_var == 1){
       shinyjs::enable("metafile")
@@ -706,87 +728,94 @@ server <- function(input, output, session) {
       shinyjs::show("req_ratio_neg2")
       shinyjs::show("req_span_neg2")
     }
+    
+    # --------------------------------------------------------------------------
+    # Build UI for data analysis after filtering is completed
+    # --------------------------------------------------------------------------
     if(reactives$step_var == 6) {
-      appendTab(
-        inputId = "tabset",
-        tabPanel(
-          title = "Alpha diversity",
-          br(),
-          selectInput(inputId = "metavar_alpha", 
-                      label = "Metainformation variable",
-                      choices = colnames(reactives$metadata_current)),
-          selectInput(inputId = "subvar_alpha",
-                      label = "Variable for subgroup analysis",
-                      choices = c("ignore", colnames(reactives$metadata_current))),
-          radioButtons(inputId = "scaling", 
-                       label = "Y axis scaling",
-                       choices = c("Z-normalized values", "Raw values")),
-          actionButton(inputId = "alpha_analysis", 
-                       label = "Update plot")
+      if(reactives$analysis_started == FALSE) {
+        reactives$analysis_started <- TRUE
+        appendTab(
+          inputId = "tabset",
+          tabPanel(
+            title = "Alpha diversity",
+            br(),
+            selectInput(inputId = "metavar_alpha", 
+                        label = "Metainformation variable",
+                        choices = colnames(reactives$metadata_current)),
+            selectInput(inputId = "subvar_alpha",
+                        label = "Variable for subgroup analysis",
+                        choices = c("ignore", colnames(reactives$metadata_current))),
+            radioButtons(inputId = "scaling", 
+                         label = "Y axis scaling",
+                         choices = c("Z-normalized values", "Raw values")),
+            actionButton(inputId = "alpha_analysis", 
+                         label = "Update plot")
+          )
         )
-      )
-      appendTab(
-        inputId = "tabset",
-        tabPanel(
-          title = "Beta diversity",
-          br(),
-          selectInput(inputId = "metavar_beta", 
-                      label = "Metainformation variable",
-                      choices = colnames(reactives$metadata_current)),
-          radioButtons(inputId = "plot_beta", 
-                       label = "Visualization type", 
-                       choices = c(
-                         "Principal coordinates analysis (PCoA)" = "beta_pcoa",
-                         "Non-metric multidimensional scaling (nMDS)" = "beta_nmds")),
-          actionButton(inputId = "beta_analysis", 
-                       label = "Update plot")
+        appendTab(
+          inputId = "tabset",
+          tabPanel(
+            title = "Beta diversity",
+            br(),
+            selectInput(inputId = "metavar_beta", 
+                        label = "Metainformation variable",
+                        choices = colnames(reactives$metadata_current)),
+            radioButtons(inputId = "plot_beta", 
+                         label = "Visualization type", 
+                         choices = c(
+                           "Principal coordinates analysis (PCoA)" = "beta_pcoa",
+                           "Non-metric multidimensional scaling (nMDS)" = "beta_nmds")),
+            actionButton(inputId = "beta_analysis", 
+                         label = "Update plot")
+          )
         )
-      )
-      appendTab(
-        inputId = "tabset",
-        tabPanel(
-          title = "Taxonomy",
-          br(),
-          selectInput(inputId = "metavar_taxonomy", 
-                      label = "Metainformation variable",
-                      choices = colnames(reactives$metadata_current)),
-          radioButtons(inputId = "taxonomy_level", 
-                       label = "Taxonomic level", 
-                       choices = c("Domain", "Phylum", "Class", "Order", 
-                                   "Family", "Genus", "Species")),
-          numericInput(inputId = "top_number_taxa",
-                       label = "Top number of taxa displayed",
-                       value = 10, min = 1, max = 20, step = 1),
-          radioButtons(inputId = "per_group_overall", 
-                       label = "Top number of taxa based on", 
-                       choices = c("Per group", "Overall")),
-          actionButton(inputId = "tax_analysis", 
-                       label = "Update plot")
+        appendTab(
+          inputId = "tabset",
+          tabPanel(
+            title = "Taxonomy",
+            br(),
+            selectInput(inputId = "metavar_taxonomy", 
+                        label = "Metainformation variable",
+                        choices = colnames(reactives$metadata_current)),
+            radioButtons(inputId = "taxonomy_level", 
+                         label = "Taxonomic level", 
+                         choices = c("Domain", "Phylum", "Class", "Order", 
+                                     "Family", "Genus", "Species")),
+            numericInput(inputId = "top_number_taxa",
+                         label = "Top number of taxa displayed",
+                         value = 10, min = 1, max = 20, step = 1),
+            radioButtons(inputId = "per_group_overall", 
+                         label = "Top number of taxa based on", 
+                         choices = c("Per group", "Overall")),
+            actionButton(inputId = "tax_analysis", 
+                         label = "Update plot")
+          )
         )
-      )
-      appendTab(
-        inputId = "tabset",
-        tabPanel(
-          title = "Sample selection",
-          br(),
-          lapply(colnames(reactives$metadata_current), function(x) {
-            pickerInput(inputId = paste0("sampleselector_", x),
-                        label = x,
-                        choices = unique(reactives$metadata_current[, x]),
-                        selected = unique(reactives$metadata_current[, x]),
-                        multiple = TRUE,
-                        options = list(`actions-box` = TRUE,
-                                       `selected-text-format` = "count",
-                                       `count-selected-text` = "{0}/{1} selected"))
-          }) # Close lapply function
+        appendTab(
+          inputId = "tabset",
+          tabPanel(
+            title = "Sample selection",
+            br(),
+            lapply(colnames(reactives$metadata_current), function(x) {
+              pickerInput(inputId = paste0("sampleselector_", x),
+                          label = x,
+                          choices = unique(reactives$metadata_current[, x]),
+                          selected = unique(reactives$metadata_current[, x]),
+                          multiple = TRUE,
+                          options = list(`actions-box` = TRUE,
+                                         `selected-text-format` = "count",
+                                         `count-selected-text` = "{0}/{1} selected"))
+            }) # Close lapply function
+          )
         )
-      )
+      }
       updateTabsetPanel(session, "tabset", selected = "Alpha diversity")
     }    
   }
   
   # ----------------------------------------------------------------------------
-  # Prevent the user from messing up the files
+  # Prevent the user from messing up the files between filtering and analysis
   # ----------------------------------------------------------------------------
   observeEvent(input$tabset, {
     if(reactives$step_var == 6 && input$tabset == "Filtering") {
@@ -852,15 +881,22 @@ server <- function(input, output, session) {
     if(input$subvar_alpha != "ignore") {
       alpha_diversity_result["Subgroup"] <- Metadata[paste0(input$subvar_alpha)]
     }
-    print(str(melt(alpha_diversity_result)))
     # Generate the alpha diversity plot
-    alpha_diversity_result_plot <- melt(alpha_diversity_result)
+    if(input$subvar_alpha != "ignore") {
+      alpha_diversity_result_plot <- melt(alpha_diversity_result,
+                                        id.vars = c("Group", "Subgroup"))
+    } else {
+      alpha_diversity_result_plot <- melt(alpha_diversity_result,
+                                          id.vars = "Group")
+    }
+    # Build alpha diversity boxplot
     alpha_diversity_plot <- 
       ggplot(data = alpha_diversity_result_plot, 
              aes(x = Group, y = value, colour = Group)) +
       geom_boxplot() +
       geom_point() +
       theme(strip.text.x = element_text(size = 6, colour = "orange"))
+    # Build facets based on selected number of variables and scaling
     if (input$subvar_alpha != "ignore" && input$scaling == "Z-normalized values") {
       alpha_diversity_plot <- alpha_diversity_plot + 
         facet_wrap(Subgroup ~ variable, 
@@ -884,9 +920,37 @@ server <- function(input, output, session) {
     output$plot <- renderPlotly({
       alpha_diversity_plot
     })
-    # Output table and significance
+    # Calculate pvalue table for alpha diversity
+    if(input$subvar_alpha != "ignore") {
+      alpha_diversity_table <- as.data.frame(
+        sapply(colnames(reactives$alpha_diversity_values), function(y) 
+          sapply(unique(alpha_diversity_result$Subgroup), function(x)
+            if(length(unique(subset(alpha_diversity_result, 
+                                    Subgroup == x)[, "Group"])) == 1) {
+              1 # print 1 if there is only one category in "Group" per subgroup
+            } else {
+              kruskal.test(formula(paste(y, "~ Group")), 
+                           data = subset(alpha_diversity_result, 
+                                         Subgroup == x))$p.value})))
+    } else {
+      alpha_diversity_table <- as.data.frame(
+        sapply(colnames(reactives$alpha_diversity_values), function(y) 
+          if(length(unique(alpha_diversity_result$Group)) == 1) {
+            1 # print 1 if there is only one category in "Group"
+          } else {
+            kruskal.test(formula(paste(y, "~ Group")),
+                         data = alpha_diversity_result)$p.value}))
+      colnames(alpha_diversity_table) <- "Group"
+      alpha_diversity_table <- as.data.frame(t(alpha_diversity_table))
+    }
+    # Round pvalues and output the table
+    alpha_diversity_table <- signif(alpha_diversity_table, 2)
+    output$table <- DT::renderDataTable({alpha_diversity_table})
+    shinyjs::hide("text")
+    shinyjs::show("table")
   })
   
+  # Check that metavar and subvar in alpha diversity are not the same
   observeEvent(input$subvar_alpha, {
     if(input$subvar_alpha == input$metavar_alpha) {
       showModal(modalDialog(
@@ -896,25 +960,12 @@ server <- function(input, output, session) {
     }
   })
 
-  Sample_selection_check <- function() {
-    # return all sample names that should not appear in the analysis
-    samples_deselected <- rownames(reactives$metadata_current)[sort(
-      unique(unlist(sapply(colnames(reactives$metadata_current), function(x) {
-        which(!reactives$metadata_current[, x] %in% 
-                input[[paste0("sampleselector_", x)]])
-        }
-      )))
-    )]
-    print("SAMPLE SELECTION CHECK")
-    print(samples_deselected)
-    return(samples_deselected)
-  }
-  
   # ----------------------------------------------------------------------------
   # Beta diversity analysis
   # ----------------------------------------------------------------------------
   observeEvent(input$beta_analysis, {
     print(paste0("INFO|server::beta_diversity",Sys.time()))
+    # Filter feature and metadata according to sample selection
     samples_deselected <- Sample_selection_check()
     Metadata <- 
       reactives$metadata_current[!rownames(reactives$metadata_current) %in% 
@@ -922,35 +973,51 @@ server <- function(input, output, session) {
     Featuredata <- 
       reactives$featuredata_current[, !colnames(reactives$featuredata_current) %in%
                                       samples_deselected]
+    Featuredata_freq <- decostand(t(Featuredata), method = "total")
+    # Calculate visualization for nMDS
     if (input$plot_beta == "beta_nmds") {
       set.seed(1)
-      featuredata_3_freq <- 
-        t(decostand(t(reactives$featuredata_3), method = "total"))
       beta_diversity_values <- 
-        metaMDS(decostand(t(Featuredata), method = "total"), distance = "bray", 
-                k = 2, autotransform = FALSE)
+        metaMDS(Featuredata_freq, distance = "bray", k = 2, 
+                autotransform = FALSE)
       beta_diversity_results <- data.frame(
         Axis1 = beta_diversity_values$points[, 1],
         Axis2 = beta_diversity_values$points[, 2])
-      rownames(beta_diversity_results) <- colnames(Featuredata)
+      rownames(beta_diversity_results) <- 
+        dimnames(beta_diversity_values$points)[[1]]
+    # Calculate visualization for PCoA
     } else if (input$plot_beta == "beta_pcoa") {
       set.seed(1)
       beta_diversity_values <- 
-        cmdscale(vegdist(decostand(t(Featuredata), method = "total"), 
-                         distance = "bray"), k = 2, eig = FALSE, add = FALSE, 
-                 x.ret = FALSE)
+        cmdscale(vegdist(Featuredata_freq, distance = "bray"), k = 2, 
+                 eig = FALSE, add = FALSE, x.ret = FALSE)
       beta_diversity_results <- data.frame(
         Axis1 = beta_diversity_values[, 1],
         Axis2 = beta_diversity_values[, 2])
-      rownames(beta_diversity_results) <- colnames(Featuredata)
+      rownames(beta_diversity_results) <- dimnames(beta_diversity_values)[[1]]
     }
+    # Attach metadata variable and calculate pvalue for beta diversity
     beta_diversity_results["Group"] <- Metadata[paste0(input$metavar_beta)]
+    if(length(unique(beta_diversity_results$Group)) <= 1) {
+      betadiv_pvalue <- NA
+    } else {
+      set.seed(1)
+      betadiv_pvalue <- 
+        signif(adonis(vegdist(Featuredata_freq, method = "bray") ~ 
+                 as.factor(beta_diversity_results$Group))$aov.tab$'Pr(>F)'[1], 2)
+    }
+    # Output plot and pvalue
     output$plot <- renderPlotly({
       ggplot(data = beta_diversity_results, 
              aes(x = Axis1, y = Axis2, colour = Group)) +
         geom_point() +
         stat_ellipse(aes(colour = Group))
     })
+    output$text <- renderText({
+      paste0("pvalue = ", betadiv_pvalue)
+    })
+    shinyjs::show("text")
+    shinyjs::hide("table")
   })
   
   # ----------------------------------------------------------------------------
@@ -958,6 +1025,7 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$tax_analysis, {
     print(paste0("INFO|server::taxnonomy",Sys.time()))
+    # Filter feature and metadata according to sample selection
     samples_deselected <- Sample_selection_check()
     Metadata <- 
       reactives$metadata_current[!rownames(reactives$metadata_current) %in% 
@@ -1038,20 +1106,15 @@ server <- function(input, output, session) {
     print(head(Taxonomy_data))
     output$plot <- renderPlotly({
       ggplot(data = Taxonomy_data, aes(x = 1, y = value, fill = variable)) +
-        geom_bar(position = "fill",stat = "identity") +
+        geom_bar(position = "fill", stat = "identity") +
         facet_wrap(. ~ Taxonomy_data[[metavar_taxonomy]], nrow = 1) 
     })
-      #putId = "per_group_overall", 
-      #label = "Top number of taxa based on", 
-    #choices = c("Per group", "Overall"))
-      # top_number_taxa
-    
-    
+    shinyjs::hide("text")
+    shinyjs::hide("table")
   })
   
+  # Check that the user does not select a taxonomy level that is not available
   observeEvent(input$taxonomy_level, {
-    #print(colnames(reactives$taxonomy_data))
-    #print(input$taxonomy_level)
     if(!(input$taxonomy_level %in% colnames(reactives$taxonomy_data))) {
       showModal(modalDialog(
         title = "Error11", paste0("It seems that your taxonomic annotation does 
@@ -1062,10 +1125,30 @@ server <- function(input, output, session) {
     }
   })
   
-  #output$plot <- renderPlot({
-  #  set.seed(1)  
-  #  plot(rnorm(10, 0, 2), rnorm(10, as.numeric(input$req_reads_per_sample), 
-  #                              isolate(reactives$step_var)))
-  #})
-  
+  # ----------------------------------------------------------------------------
+  # Sample_selection_check returns deselected sample names from Sample selection
+  # ----------------------------------------------------------------------------
+  Sample_selection_check <- function() {
+    samples_deselected <- rownames(reactives$metadata_current)[sort(
+      unique(unlist(sapply(colnames(reactives$metadata_current), function(x) {
+        which(!reactives$metadata_current[, x] %in% 
+                input[[paste0("sampleselector_", x)]])
+      }
+      )))
+    )]
+    print("SAMPLE SELECTION CHECK")
+    # Check that the user does not deselect all samples
+    if (length(samples_deselected) == 
+        length(rownames(reactives$metadata_current))) {
+      showModal(modalDialog(
+        title = "Warning12", "It seems that you deselected all samples. Sample
+        selection is set back, and all samples are selected for analysis."))
+      lapply(colnames(reactives$metadata_current), function(x) {
+        updatePickerInput(session, inputId = paste0("sampleselector_", x),
+                          selected = unique(reactives$metadata_current[, x]))
+      }) # Close lapply function
+      samples_deselected <- c()
+    }
+    return(samples_deselected)
+  }
 }
