@@ -9,6 +9,20 @@
 # ------------------------------------------------------------------------------
 
 sample_types_allowed <- c("SAMPLE", "POS1", "POS2", "NEG1", "NEG2")
+plot_theme <- theme(
+  strip.background = element_rect(fill = "#f5f5f5", colour = "grey50"),
+  panel.background = element_rect(fill = NA, colour = "grey50"),
+  panel.border = element_rect(fill = NA, colour = "grey50"),
+  panel.grid = element_blank(),
+  legend.key = element_blank()) 
+set.seed(1)
+theme_colours <- c(c("#4669A5", "#e65d1e", "#5dc9cf", "#ffda0a", "#ba002b", 
+                   "#6ed957", "#ffbdc7", "#c97b00", "#fff79c", "#277527", 
+                   "#ff7891", "#c6f279", "#3f1163", "#f0b400", "#729ce8", 
+                   "#8F1870", "#e3cb6f", "#248c8c", "#e61e1e", "#98d8fe",
+                   "#a84c1b", "#D68CCC", "#065e5e", "#ff9c75", "#9DBD32", 
+                   "#B957A3"), sample(rainbow(250)))
+
 
 # ------------------------------------------------------------------------------
 # Server logic main function
@@ -43,10 +57,8 @@ server <- function(input, output, session) {
   shinyjs::hide("req_ratio_per_feature")
   shinyjs::hide("header_neg1")
   shinyjs::hide("req_ratio_neg1")
-  #shinyjs::hide("req_span_neg1")
   shinyjs::hide("header_neg2")
   shinyjs::hide("req_ratio_neg2")
-  #shinyjs::hide("req_span_neg2")
   shinyjs::hide("update_button")
   shinyjs::hide("back_button")
   shinyjs::hide("next_button")
@@ -551,7 +563,8 @@ server <- function(input, output, session) {
         features = apply(reactives$featuredata_current, 2, function(x) sum(x > 0)))
       output$plot <- renderPlotly({
         ggplot(data = data_to_plot, aes(x = reads, y = features)) +
-          geom_point()
+          geom_point(aes(text = paste("Sample:", rownames(data_to_plot)))) +
+          plot_theme
       })
     }
     if(input$visualization_type == "Change in feature abundance") {
@@ -559,16 +572,18 @@ server <- function(input, output, session) {
         reads_before = rowSums(reactives$featuredata_1))
       data_to_plot <- merge(data_to_plot, data.frame(
         reads_now = rowSums(reactives$featuredata_current)), by = 0, all = TRUE)
+      print(head(data_to_plot))
       data_to_plot[is.na(data_to_plot)] <- 0
       output$plot <- renderPlotly({
         ggplot(data = data_to_plot, aes(x = reads_before, y = reads_now)) +
-          geom_point() +
-          scale_x_log10() + scale_y_log10()
+          geom_point(aes(text = paste("Feature:", Row.names))) +
+          scale_x_log10() + scale_y_log10() +
+          plot_theme
       }) 
     }
     if(input$visualization_type == "Contamination removal - NEG1" ||
        input$visualization_type == "Contamination removal - NEG2") {
-      if(reactives$step_var != 5) {
+      if(reactives$step_var < 5) {
         showModal(modalDialog(title = "Warning 1", "Please wait for contaminant
                               removal analysis."))
         updateSelectInput(session, inputId = "visualization_type",
@@ -580,8 +595,9 @@ server <- function(input, output, session) {
           contamination_plot <- 
             ggplot(data = reactives$filter_basis, 
                    aes(x = ratio_neg1, y = neg1_span, size = sample_mean)) +
-            geom_point() +
-            scale_x_log10()
+            geom_point(aes(text = paste("Feature:", rownames(reactives$filter_basis)))) +
+            scale_x_log10() +
+            plot_theme
           if(as.numeric(req_span_neg1) != 0.0001) {
             contamination_plot <- contamination_plot +
               geom_hline(aes(alpha = "Span_threshold", 
@@ -603,8 +619,9 @@ server <- function(input, output, session) {
           contamination_plot <- 
             ggplot(data = reactives$filter_basis, 
                    aes(x = ratio_neg2, y = neg2_span, size = sample_mean)) +
-              geom_point() +
-              scale_x_log10()
+            geom_point(aes(text = paste("Feature:", rownames(reactives$filter_basis)))) +
+            scale_x_log10() +
+            plot_theme
           if(as.numeric(req_span_neg2) != 0.0001) {
             contamination_plot <- contamination_plot +
               geom_hline(aes(alpha = "Span_threshold", 
@@ -638,7 +655,8 @@ server <- function(input, output, session) {
                          sum_of_reads_function(reactives$featuredata_5)))
       output$plot <- renderPlotly({
         ggplot(data = data_to_plot, aes(x = step, y = sum_of_reads)) +
-          geom_bar(stat = "identity")
+          geom_bar(stat = "identity") +
+          plot_theme
       }) 
     }
     # Save current input:
@@ -722,12 +740,6 @@ server <- function(input, output, session) {
       shinyjs::enable("featurefile")
       shinyjs::hide("visualization_type")
       shinyjs::hide("req_reads_per_sample")
-      shinyjs::hide("req_reads_per_feature")
-      shinyjs::hide("req_ratio_per_feature")
-      shinyjs::hide("header_neg1") 
-      shinyjs::hide("req_ratio_neg1")
-      shinyjs::hide("header_neg2")
-      shinyjs::hide("req_ratio_neg2")
     }
     if(reactives$step_var == 2){
       shinyjs::disable("metafile")
@@ -736,60 +748,40 @@ server <- function(input, output, session) {
       shinyjs::show("req_reads_per_sample") 
       shinyjs::enable("req_reads_per_sample") 
       shinyjs::hide("req_reads_per_feature")
-      shinyjs::hide("req_ratio_per_feature")
-      shinyjs::hide("header_neg1") 
-      shinyjs::hide("req_ratio_neg1")
-      shinyjs::hide("header_neg2")
-      shinyjs::hide("req_ratio_neg2")
     }
     if(reactives$step_var == 3) {
-      shinyjs::disable("metafile")
-      shinyjs::disable("featurefile")
       shinyjs::disable("req_reads_per_sample") 
       shinyjs::show("req_reads_per_feature")
       shinyjs::enable("req_reads_per_feature")
       shinyjs::hide("req_ratio_per_feature")
-      shinyjs::hide("header_neg1") 
-      shinyjs::hide("req_ratio_neg1")
-      shinyjs::hide("header_neg2")
-      shinyjs::hide("req_ratio_neg2")
     }
     if(reactives$step_var == 4) {
-      shinyjs::disable("metafile")
-      shinyjs::disable("featurefile")
-      shinyjs::disable("req_reads_per_sample") 
       shinyjs::disable("req_reads_per_feature")
       shinyjs::show("req_ratio_per_feature")
       shinyjs::enable("req_ratio_per_feature")
       shinyjs::hide("header_neg1") 
       shinyjs::hide("req_ratio_neg1")
-      shinyjs::hide("placeholder_span_1")
+      shinyjs::hide("req_span_neg1")
       shinyjs::hide("header_neg2")
       shinyjs::hide("req_ratio_neg2")
-      shinyjs::hide("placeholder_span_2")
+      shinyjs::hide("req_span_neg2")
     }
     if(reactives$step_var == 5) {
-      shinyjs::disable("metafile")
-      shinyjs::disable("featurefile")
-      shinyjs::disable("req_reads_per_sample") 
-      shinyjs::disable("req_reads_per_feature")
       shinyjs::disable("req_ratio_per_feature")
       shinyjs::show("header_neg1") 
       shinyjs::show("req_ratio_neg1")
-      shinyjs::show("placeholder_span_1")
       insertUI(selector = "#placeholder_span_1",
                ui = selectInput(inputId = "req_span_neg1",
                                 label = "Minimum span threshold (NEG1)",		
                                 choices = reactives$neg1_span_steps))
       shinyjs::show("header_neg2")
       shinyjs::show("req_ratio_neg2")
-      shinyjs::show("placeholder_span_2")
       insertUI(selector = "#placeholder_span_2",
                ui = selectInput(inputId = "req_span_neg2",
                                 label = "Minimum span threshold (NEG2)",		
                                 choices = reactives$neg2_span_steps))
     }
-    
+
     # --------------------------------------------------------------------------
     # Build UI for data analysis after filtering is completed
     # --------------------------------------------------------------------------
@@ -952,10 +944,13 @@ server <- function(input, output, session) {
     # Build alpha diversity boxplot
     alpha_diversity_plot <- 
       ggplot(data = alpha_diversity_result_plot, 
-             aes(x = Group, y = value, colour = Group)) +
+             aes(x = Group, y = value, colour = Group, fill = Group)) +
       geom_boxplot() +
       geom_point() +
-      theme(strip.text.x = element_text(size = 6, colour = "orange"))
+      theme(strip.text.x = element_text(size = 6, colour = "orange")) +
+      plot_theme +
+      scale_colour_manual(values = theme_colours) +
+      scale_fill_manual(values = alpha(theme_colours, 0.5))
     # Build facets based on selected number of variables and scaling
     if (input$subvar_alpha != "ignore" && input$scaling == "Z-normalized values") {
       alpha_diversity_plot <- alpha_diversity_plot + 
@@ -1070,8 +1065,10 @@ server <- function(input, output, session) {
     output$plot <- renderPlotly({
       ggplot(data = beta_diversity_results, 
              aes(x = Axis1, y = Axis2, colour = Group)) +
-        geom_point() +
-        stat_ellipse(aes(colour = Group))
+        geom_point(aes(text = paste("Sample:", rownames(beta_diversity_results)))) +
+        stat_ellipse() +
+        plot_theme +
+        scale_colour_manual(values = theme_colours)
     })
     output$text <- renderText({
       paste0("pvalue = ", betadiv_pvalue)
@@ -1147,6 +1144,7 @@ server <- function(input, output, session) {
       Top_taxa <- unique(unlist(Top_taxa))
     }
     # Summarise other taxa into "Others"
+    Top_taxa <- sort(Top_taxa)
     Taxonomy_others <- Taxonomy_data %>% 
       select_if(is.numeric) %>%
       select(-all_of(Top_taxa)) %>%
@@ -1155,15 +1153,32 @@ server <- function(input, output, session) {
     colnames(Taxonomy_others) <- "Others"
     # Prevent showing an empty "Others" category in the plot
     if(colSums(Taxonomy_others) != 0) {
-      Taxonomy_data <- merge(Taxonomy_data[, c(metavar_taxonomy, Top_taxa)], 
-                             Taxonomy_others, by = 0, all = TRUE)
+      Taxonomy_data <- merge(Taxonomy_others,
+                             Taxonomy_data[, c(metavar_taxonomy, Top_taxa)], 
+                             by = 0, all = TRUE)
+    } else { # Prevent a bug with melt when "Others" don't exist
+      Taxonomy_data["Row.names"] <- rownames(Taxonomy_data)
     }
     # Plot the result
-    Taxonomy_data <- melt(Taxonomy_data)
+    Taxonomy_data <- melt(
+      Taxonomy_data, id.vars = c("Row.names", metavar_taxonomy))
+    taxonomy_plot <- ggplot(data = Taxonomy_data, 
+                            aes(x = 1, y = value, fill = variable)) +
+      geom_bar(position = "fill", stat = "identity") +
+      facet_wrap(. ~ get(metavar_taxonomy), nrow = 1) +
+      plot_theme +
+      scale_y_continuous(expand = c(0, 0)) +
+      theme(axis.text.x = element_blank(),
+            axis.ticks.x = element_blank())
+    if(colSums(Taxonomy_others) != 0) {
+      taxonomy_plot <- taxonomy_plot +
+        scale_fill_manual(values = c("#d1d1d1", theme_colours))
+    } else {
+      taxonomy_plot <- taxonomy_plot +
+        scale_fill_manual(values = theme_colours)
+    }
     output$plot <- renderPlotly({
-      ggplot(data = Taxonomy_data, aes(x = 1, y = value, fill = variable)) +
-        geom_bar(position = "fill", stat = "identity") +
-        facet_wrap(. ~ Taxonomy_data[[metavar_taxonomy]], nrow = 1) 
+      taxonomy_plot
     })
     shinyjs::hide("text")
     shinyjs::hide("table")
