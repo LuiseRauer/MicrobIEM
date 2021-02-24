@@ -254,7 +254,7 @@ server <- function(input, output, session) {
       # Proceed one step and start the filtering 
       # ------------------------------------------------------------------------
       reactives$step_var <- 2
-      filter_feature_table(input$req_reads_per_sample,
+      filter_feature_table(#input$req_reads_per_sample,
                            input$req_reads_per_feature,
                            input$req_ratio_per_feature,
                            input$req_ratio_neg1,
@@ -276,7 +276,7 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   # Define the filter_feature_table function
   # ----------------------------------------------------------------------------
-  filter_feature_table <- function(req_reads_per_sample,
+  filter_feature_table <- function(#req_reads_per_sample,
                                    req_reads_per_feature,
                                    req_ratio_per_feature,
                                    req_ratio_neg1,
@@ -294,7 +294,7 @@ server <- function(input, output, session) {
       # Define samples to keep
       sample_read_sums <- colSums(reactives$featuredata_1)
       samples_to_keep <- names(
-        sample_read_sums[sample_read_sums >= as.numeric(req_reads_per_sample)])
+        sample_read_sums[sample_read_sums >= as.numeric(input$req_reads_per_sample)])
       # Filter featuredata and metadata
       reactives$featuredata_2 <- reactives$featuredata_1[, samples_to_keep]
       reactives$metadata_2 <- 
@@ -459,13 +459,48 @@ server <- function(input, output, session) {
     }
     
     # --------------------------------------------------------------------------
-    # Step 6: save final files
+    # Step 6: Precalculate values for analysis and save final files
     # --------------------------------------------------------------------------
     if(reactives$step_var == 6) {
       print(paste0("INFO - filtering step 6 - save final feature and metadata - ", 
                    Sys.time()))
       reactives$featuredata_6 <- reactives$featuredata_current
       reactives$metadata_6 <- reactives$metadata_current
+      
+      # ------------------------------------------------------------------------
+      # Pre-calculate values for alpha diversity analysis
+      # ------------------------------------------------------------------------
+      print(paste0("INFO - pre-calculate alpha diversity values - ", Sys.time()))
+      # Define alpha diversity indices
+      Richness.function <- function(x) {sum(x > 0)}
+      Shannon.function <- function(x) {
+        -sum(scale(x, center = FALSE, scale = sum(x))*
+               log(scale(x, center = FALSE, scale = sum(x))), na.rm = TRUE)
+      }
+      InvSimpson.function <- function(x) {
+        1/(sum((scale(x, center = FALSE, scale = sum(x)))^2))
+      }
+      Simpson.function <- function(x) {
+        sum((scale(x, center = FALSE, scale = sum(x)))^2)
+      }
+      Evenness.function <- function(x) {
+        (-sum(scale(x, center = FALSE, scale = sum(x)) *
+                log(scale(x, center = FALSE, scale = sum(x))), na.rm = TRUE)) /
+          log(sum(x > 0))
+      }
+      # Calculate alpha diversity indices for current metadata
+      reactives$alpha_diversity_values <- data.frame(
+        Richness = apply(reactives$featuredata_6, 2, Richness.function),
+        Shannon = apply(reactives$featuredata_6, 2, Shannon.function),
+        Inv.Simpson = apply(reactives$featuredata_6, 2, InvSimpson.function),
+        Simpson = apply(reactives$featuredata_6, 2, Simpson.function),
+        Evenness = apply(reactives$featuredata_6, 2, Evenness.function))
+      rownames(reactives$alpha_diversity_values) <- 
+        colnames(reactives$featuredata_6)
+      
+      # ------------------------------------------------------------------------
+      # Save final feature and metafile
+      # ------------------------------------------------------------------------
       # Save final featuretable with absolute counts
       featuredata_current <- merge(reactives$featuredata_6,
                                    reactives$featuredata_taxonomy, 
@@ -490,6 +525,25 @@ server <- function(input, output, session) {
       write.table(reactives$metadata_6, 
         file = paste0(reactives$output_dir, "/output/Metatable_final.txt"),
         row.names = FALSE, sep = "\t", quote = FALSE)
+      
+      # ------------------------------------------------------------------------
+      # Save other files - alpha/beta diversity and quality control
+      # ------------------------------------------------------------------------
+      # Save alpha diversity values
+      write.table(
+        data.frame(Sample_ID = rownames(reactives$alpha_diversity_values), 
+                   reactives$alpha_diversity_values), 
+        file = paste0(reactives$output_dir, "/output/Alpha-diversity_values.txt"),
+        row.names = FALSE, sep = "\t", quote = FALSE)
+      # Save beta diversity distance matrix
+      distance_matrix <- as.data.frame(
+        as.matrix(vegdist(t(reactives$featuredata_6), method = "bray")))
+      write.table(
+        data.frame(Sample_ID = rownames(distance_matrix), distance_matrix,
+                   check.names = FALSE), 
+        file = paste0(reactives$output_dir, "/output/Beta-diversity_distance-matrix.txt"),
+        row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
+      
       # Save contamination filter basis
       write.table(
         data.frame(OTU_ID = rownames(reactives$filter_basis), 
@@ -526,7 +580,7 @@ server <- function(input, output, session) {
         row.names = FALSE, sep = "\t", quote = FALSE)
 
       # ------------------------------------------------------------------------
-      # Create overview file
+      # Create overview file for filter settings
       # ------------------------------------------------------------------------
       writeLines(paste0(c(
         "MicrobIEM - quality control and analysis tool for microbiome data",
@@ -549,46 +603,20 @@ server <- function(input, output, session) {
         sep = " "), paste0(reactives$output_dir, "/output/Filter_settings.txt"))
       
       # ------------------------------------------------------------------------
-      # Pre-calculate values for alpha diversity analysis
-      # ------------------------------------------------------------------------
-      print(paste0("INFO - pre-calculate alpha diversity values - ", Sys.time()))
-      # Define alpha diversity indices
-      Richness.function <- function(x) {sum(x > 0)}
-      Shannon.function <- function(x) {
-        -sum(scale(x, center = FALSE, scale = sum(x))*
-               log(scale(x, center = FALSE, scale = sum(x))), na.rm = TRUE)
-      }
-      InvSimpson.function <- function(x) {
-        1/(sum((scale(x, center = FALSE, scale = sum(x)))^2))
-      }
-      Simpson.function <- function(x) {
-        sum((scale(x, center = FALSE, scale = sum(x)))^2)
-      }
-      Evenness.function <- function(x) {
-        (-sum(scale(x, center = FALSE, scale = sum(x)) *
-                log(scale(x, center = FALSE, scale = sum(x))), na.rm = TRUE)) /
-          log(sum(x > 0))
-      }
-      # Calculate alpha diversity indices for current metadata
-      reactives$alpha_diversity_values <- data.frame(
-        Richness = apply(reactives$featuredata_6, 2, Richness.function),
-        Shannon = apply(reactives$featuredata_6, 2, Shannon.function),
-        Inv.Simpson = apply(reactives$featuredata_6, 2, InvSimpson.function),
-        Simpson = apply(reactives$featuredata_6, 2, Simpson.function),
-        Evenness = apply(reactives$featuredata_6, 2, Evenness.function))
-      rownames(reactives$alpha_diversity_values) <- 
-        colnames(reactives$featuredata_6)
-      
-      # ------------------------------------------------------------------------
       # Information for the user for analysis
       # ------------------------------------------------------------------------
       showModal(modalDialog(
         title = "Info", 
-        paste0("There are ", nrow(reactives$metadata_6), " samples and ",
+        HTML(paste0("There are ", nrow(reactives$metadata_6), " samples and ",
                sum(rowSums(reactives$featuredata_6)), " reads in ", 
                nrow(reactives$featuredata_6), 
-               " features remaining for analysis. Raw feature and meta file,
-               and a logfile for filtering have been saved."),
+               " features remaining for analysis.", 
+               "<br><br> The following files have
+               been saved in your output folder: 
+               <br>&#8226 Filtered metafile and featurefile 
+               (with absolute and realtive abundance),
+               <br>&#8226 Logfile for filter settings,
+               <br>&#8226 Raw values for alpha and beta diversity analysis.")),
         footer = tagList(modalButton("Ok"))
       ))
     }
@@ -744,7 +772,7 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$update_button, {
     print(paste0("INFO - update plot - ", Sys.time()))
-    filter_feature_table(input$req_reads_per_sample,
+    filter_feature_table(#input$req_reads_per_sample,
                          input$req_reads_per_feature,
                          input$req_ratio_per_feature,
                          input$req_ratio_neg1,
@@ -762,7 +790,7 @@ server <- function(input, output, session) {
   observeEvent(input$next_button, {
     reactives$step_var <- reactives$step_var + 1
     print(paste0("INFO - next to step ", reactives$step_var, " - ", Sys.time()))
-    filter_feature_table(input$req_reads_per_sample,
+    filter_feature_table(#input$req_reads_per_sample,
                          input$req_reads_per_feature,
                          input$req_ratio_per_feature,
                          input$req_ratio_neg1,
@@ -1022,8 +1050,10 @@ server <- function(input, output, session) {
                                   "\nvalue:", round(value, 3))), size = 1.5) +
       theme(strip.text.x = element_text(size = 8)) +
       plot_theme +
-      scale_colour_manual(values = theme_colours) +
-      scale_fill_manual(values = alpha(theme_colours, 0.5))
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+            axis.title = element_blank()) +
+      scale_colour_manual(input$metavar_alpha, values = theme_colours) +
+      scale_fill_manual(input$metavar_alpha, values = alpha(theme_colours, 0.5))
     # Build facets based on selected number of variables and scaling
     if (input$subvar_alpha != "ignore" && input$scaling == "Z-normalized values") {
       alpha_diversity_plot <- alpha_diversity_plot + 
