@@ -57,7 +57,7 @@ server <- function(input, output, session) {
                               neg2_span_steps = NA, req_span_neg2 = NA,
                               analysis_started = FALSE)
   
-  # Hide buttons and input fields in the beginning
+  # Hide buttons and input fields defined in UI function
   shinyjs::hide("visualization_type")
   shinyjs::hide("req_reads_per_sample")
   shinyjs::hide("req_reads_per_feature")
@@ -149,16 +149,6 @@ server <- function(input, output, session) {
       print(paste0("INFO - meta and featurefile loaded - ", Sys.time()))
       print(paste0("INFO - ", length(sample_names_md), 
                    " samples and controls found in this analysis"))
-      # Create output directory
-      if (is.na(reactives$output_dir)) {
-        reactives$output_dir <- gsub(":", "_", format(Sys.time(), 
-                                                      "%Y_%m_%d_%a_%X"))
-        if (!dir.exists(reactives$output_dir)){
-          dir.create(paste0(reactives$output_dir, "/output"), recursive = TRUE)
-          dir.create(paste0(reactives$output_dir, "/quality_control"), recursive = TRUE)
-          print(paste0("INFO - output directory created - ", Sys.time()))
-        }
-      }
       
       # ------------------------------------------------------------------------
       # Prepare the data for filtering 
@@ -254,13 +244,7 @@ server <- function(input, output, session) {
       # Proceed one step and start the filtering 
       # ------------------------------------------------------------------------
       reactives$step_var <- 2
-      filter_feature_table(#input$req_reads_per_sample,
-                           input$req_reads_per_feature,
-                           input$req_ratio_per_feature,
-                           input$req_ratio_neg1,
-                           reactives$req_span_neg1,
-                           input$req_ratio_neg2,
-                           reactives$req_span_neg2)
+      filter_feature_table()
       # Make buttons appear
       step_var_UIchange()
       shinyjs::show("update_button")
@@ -276,13 +260,7 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   # Define the filter_feature_table function
   # ----------------------------------------------------------------------------
-  filter_feature_table <- function(#req_reads_per_sample,
-                                   req_reads_per_feature,
-                                   req_ratio_per_feature,
-                                   req_ratio_neg1,
-                                   req_span_neg1,
-                                   req_ratio_neg2,
-                                   req_span_neg2) {
+  filter_feature_table <- function() {
 
     # --------------------------------------------------------------------------
     # Filter step 2: remove samples
@@ -315,7 +293,7 @@ server <- function(input, output, session) {
       # Define feature to keep
       feature_read_sums <- rowSums(reactives$featuredata_2)
       feature_to_keep_abund <- names(
-        feature_read_sums[feature_read_sums >= as.numeric(req_reads_per_feature)])
+        feature_read_sums[feature_read_sums >= as.numeric(input$req_reads_per_feature)])
       # Filter featuredata and metadata
       reactives$featuredata_3 <- 
         reactives$featuredata_2[feature_to_keep_abund, ]
@@ -346,7 +324,7 @@ server <- function(input, output, session) {
       # Define feature to keep
       feature_read_freqs <- apply(featuredata_3_freq, 1, max)
       feature_to_keep_freq <- names(
-        feature_read_freqs[feature_read_freqs >= as.numeric(req_ratio_per_feature)])
+        feature_read_freqs[feature_read_freqs >= as.numeric(input$req_ratio_per_feature)])
       # Filter featuredata and metadata
       reactives$featuredata_4 <- 
         reactives$featuredata_3[feature_to_keep_freq, ]
@@ -499,6 +477,19 @@ server <- function(input, output, session) {
         colnames(reactives$featuredata_6)
       
       # ------------------------------------------------------------------------
+      # Create output directory
+      # ------------------------------------------------------------------------
+      if (is.na(reactives$output_dir)) {
+        reactives$output_dir <- gsub(":", "_", format(Sys.time(), 
+                                                      "%Y_%m_%d_%a_%X"))
+        if (!dir.exists(reactives$output_dir)){
+          dir.create(paste0(reactives$output_dir, "/output"), recursive = TRUE)
+          dir.create(paste0(reactives$output_dir, "/quality_control"), recursive = TRUE)
+          print(paste0("INFO - output directory created - ", Sys.time()))
+        }
+      }
+      
+      # ------------------------------------------------------------------------
       # Save final feature and metafile
       # ------------------------------------------------------------------------
       # Save final featuretable with absolute counts
@@ -537,7 +528,8 @@ server <- function(input, output, session) {
         row.names = FALSE, sep = "\t", quote = FALSE)
       # Save beta diversity distance matrix
       distance_matrix <- as.data.frame(
-        as.matrix(vegdist(t(reactives$featuredata_6), method = "bray")))
+        as.matrix(vegdist(decostand(t(reactives$featuredata_6), method = "total"), 
+                          method = "bray")))
       write.table(
         data.frame(Sample_ID = rownames(distance_matrix), distance_matrix,
                    check.names = FALSE), 
@@ -550,7 +542,7 @@ server <- function(input, output, session) {
                    reactives$filter_basis), 
         file = paste0(reactives$output_dir, "/quality_control/Contamination_filter_basis.txt"),
         row.names = FALSE, sep = "\t", quote = FALSE)
-      # Save reduction of reads per OTU by filter step
+      # Save reduction of reads per feature by filter step
       Reduction_per_feature <- 
         Reduce(function(x, y) merge(x = x, y = y, by.x = "Row.names", by.y = 0, 
                                     all.x = TRUE), 
@@ -613,8 +605,7 @@ server <- function(input, output, session) {
                " features remaining for analysis.", 
                "<br><br> The following files have
                been saved in your output folder: 
-               <br>&#8226 Filtered metafile and featurefile 
-               (with absolute and realtive abundance),
+               <br>&#8226 Filtered metafile and featurefile,
                <br>&#8226 Logfile for filter settings,
                <br>&#8226 Raw values for alpha and beta diversity analysis.")),
         footer = tagList(modalButton("Ok"))
@@ -687,7 +678,9 @@ server <- function(input, output, session) {
             geom_point(aes(text = paste("feature:", rownames(reactives$filter_basis),
                                         "\ntaxonomy:", reactives$filter_basis$Taxonomy))) +
             scale_x_log10() +
-            scale_colour_manual(values = contamination_neg1_colours) +
+            scale_colour_manual("Status", values = contamination_neg1_colours) +
+            scale_size_continuous("") +
+            xlab("Ratio (NEG1)") + ylab("Span (NEG1)") +
             plot_theme
           output$plot <- renderPlotly({
             contamination_plot
@@ -712,7 +705,9 @@ server <- function(input, output, session) {
             geom_point(aes(text = paste("feature:", rownames(reactives$filter_basis),
                                         "\ntaxonomy:", reactives$filter_basis$Taxonomy))) +
             scale_x_log10() +
-            scale_colour_manual(values = contamination_neg2_colours) +
+            scale_colour_manual("Status", values = contamination_neg2_colours) +
+            scale_size_continuous("") +
+            xlab("Ratio (NEG2)") + ylab("Span (NEG2)") +
             plot_theme
           output$plot <- renderPlotly({
             contamination_plot
@@ -728,16 +723,16 @@ server <- function(input, output, session) {
         step = c("0 - original", "1 - without controls", "2 - sample filter",
                  "3 - feature abundance filter", "4 - feature frequency filter",
                  "5 - contamination filter"),
-        sum_of_reads = c(sum_of_reads_function(reactives$featuredata),
-                         sum_of_reads_function(reactives$featuredata_1),
-                         sum_of_reads_function(reactives$featuredata_2),
-                         sum_of_reads_function(reactives$featuredata_3),
-                         sum_of_reads_function(reactives$featuredata_4),
-                         sum_of_reads_function(reactives$featuredata_5)))
+        reads = c(sum_of_reads_function(reactives$featuredata),
+                  sum_of_reads_function(reactives$featuredata_1),
+                  sum_of_reads_function(reactives$featuredata_2),
+                  sum_of_reads_function(reactives$featuredata_3),
+                  sum_of_reads_function(reactives$featuredata_4),
+                  sum_of_reads_function(reactives$featuredata_5)))
       reduction_of_reads <- 
-        ggplot(data = data_to_plot, aes(x = step, y = sum_of_reads, fill = step)) +
+        ggplot(data = data_to_plot, aes(x = step, y = reads, fill = step)) +
         geom_bar(aes(text = paste("step:", step,
-                                  "\nreads:", sum_of_reads)), stat = "identity") +
+                                  "\nreads:", reads)), stat = "identity") +
         scale_fill_manual(values = c("#E3F0F7", "#C4E3F4", "#A4D6F2", "#85C8EF",
                                      "#65BBEC", "#2FA4E7")) +
         scale_x_discrete(labels = c("0", "1", "2", "3", "4", "5")) +
@@ -772,13 +767,7 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$update_button, {
     print(paste0("INFO - update plot - ", Sys.time()))
-    filter_feature_table(#input$req_reads_per_sample,
-                         input$req_reads_per_feature,
-                         input$req_ratio_per_feature,
-                         input$req_ratio_neg1,
-                         reactives$req_span_neg1,
-                         input$req_ratio_neg2,
-                         reactives$req_span_neg2)
+    filter_feature_table()
     shinyjs::hide("text")
     shinyjs::hide("table")
     output$table <- NULL
@@ -790,13 +779,7 @@ server <- function(input, output, session) {
   observeEvent(input$next_button, {
     reactives$step_var <- reactives$step_var + 1
     print(paste0("INFO - next to step ", reactives$step_var, " - ", Sys.time()))
-    filter_feature_table(#input$req_reads_per_sample,
-                         input$req_reads_per_feature,
-                         input$req_ratio_per_feature,
-                         input$req_ratio_neg1,
-                         reactives$req_span_neg1,
-                         input$req_ratio_neg2,
-                         reactives$req_span_neg2)
+    filter_feature_table()
     step_var_UIchange()
     shinyjs::hide("text")
     shinyjs::hide("table")
@@ -956,11 +939,11 @@ server <- function(input, output, session) {
             title = "Download",
             br(),
             actionButton(inputId = "download_alpha",
-                         label = "Alpha diversity values"),
-            downloadButton(outputId = "download_beta",
-                           label = "Beta diversity values (not working)"),
-            downloadButton(outputId = "download_taxonomy",
-                           label = "Taxonomy values (not working)")
+                         label = "Current alpha diversity values"),
+            actionButton(inputId = "download_beta",
+                         label = "Current beta diversity values"),
+            actionButton(inputId = "download_taxonomy",
+                         label = "Current taxonomy values")
           )
         )
       }
@@ -1034,6 +1017,8 @@ server <- function(input, output, session) {
     if(input$subvar_alpha != "ignore") {
       alpha_diversity_result["Subgroup"] <- Metadata[paste0(input$subvar_alpha)]
     }
+    # Generate format for download
+    reactives$alpha_diversity_download <- alpha_diversity_result
     # Generate the alpha diversity plot
     if(input$subvar_alpha != "ignore") {
       alpha_diversity_result_plot <- melt(alpha_diversity_result,
@@ -1104,7 +1089,9 @@ server <- function(input, output, session) {
     # Round pvalues and output the table
     alpha_diversity_table <- signif(alpha_diversity_table, 2)
     output$table <- DT::renderDataTable({alpha_diversity_table})
-    shinyjs::hide("text")
+    # Show an empty line between plot and table
+    output$text <- renderText({"" })
+    shinyjs::show("text")
     shinyjs::show("table")
   })
   
@@ -1164,6 +1151,8 @@ server <- function(input, output, session) {
         signif(adonis(vegdist(Featuredata_freq, method = "bray") ~ 
                  as.factor(beta_diversity_results$Group))$aov.tab$'Pr(>F)'[1], 2)
     }
+    # Generate format for download
+    reactives$beta_diversity_download <- beta_diversity_results
     # Output plot and pvalue
     output$plot <- renderPlotly({
       ggplot(data = beta_diversity_results, 
@@ -1174,7 +1163,7 @@ server <- function(input, output, session) {
         scale_colour_manual(values = theme_colours)
     })
     output$text <- renderText({
-      paste0("pvalue = ", betadiv_pvalue)
+      paste0("p-value = ", betadiv_pvalue)
     })
     shinyjs::show("text")
     shinyjs::hide("table")
@@ -1257,24 +1246,28 @@ server <- function(input, output, session) {
     # Prevent showing an empty "Others" category in the plot
     if(colSums(Taxonomy_others) != 0) {
       Taxonomy_data <- merge(Taxonomy_others,
-                             Taxonomy_data[, c(metavar_taxonomy, Top_taxa)], 
+                             Taxonomy_data[, c(Top_taxa, metavar_taxonomy)],
                              by = 0, all = TRUE)
-    } else { # Prevent a bug with melt when "Others" don't exist
+    } else { # Prevent a bug in melt() when "Others" don't exist
       Taxonomy_data["Row.names"] <- rownames(Taxonomy_data)
     }
+    # Generate format for download
+    reactives$taxonomy_download <- Taxonomy_data[, order(ncol(Taxonomy_data):1)]
     # Plot the result
     Taxonomy_data <- melt(
-      Taxonomy_data, id.vars = c("Row.names", metavar_taxonomy))
+      Taxonomy_data, id.vars = c("Row.names", metavar_taxonomy), 
+      value.name = "Relative Abundance") # Space needed to avoid a plotly bug
+    colnames(Taxonomy_data)[colnames(Taxonomy_data) == "variable"] <- "Taxonomy"
     taxonomy_plot <- ggplot(data = Taxonomy_data, 
-                            aes(x = 1, y = value, fill = variable)) +
-      geom_bar(position = "fill", stat = "identity") +
-      facet_wrap(. ~ get(metavar_taxonomy), nrow = 1) +
+                            aes(x = !!sym(metavar_taxonomy), 
+                                y = !!sym("Relative Abundance"),  
+                                fill = Taxonomy)) +
+      geom_bar(position = "fill", stat = "identity") + 
       plot_theme +
+      ylab("Relative Abundance") +
       scale_y_continuous(expand = c(0, 0)) +
-      theme(axis.text.x = element_blank(),
-            axis.ticks.x = element_blank()) +
       xlab(metavar_taxonomy)
-      if(colSums(Taxonomy_others) != 0) {
+    if(colSums(Taxonomy_others) != 0) {
       taxonomy_plot <- taxonomy_plot +
         scale_fill_manual("Taxonomy", values = c("#d1d1d1", theme_colours))
     } else {
@@ -1282,12 +1275,12 @@ server <- function(input, output, session) {
         scale_fill_manual("Taxonomy", values = theme_colours)
     }
     output$plot <- renderPlotly({
-      taxonomy_plot
+      taxonomy_plot 
     })
     shinyjs::hide("text")
     shinyjs::hide("table")
   })
-  
+  getOption("digits")
   # Check that the user does not select a taxonomy level that is not available
   observeEvent(input$taxonomy_level, {
     if(!(input$taxonomy_level %in% colnames(reactives$taxonomy_data))) {
@@ -1330,19 +1323,75 @@ server <- function(input, output, session) {
   }
   
   # ----------------------------------------------------------------------------
-  # Data download
+  # Data download - alpha diversity
   # ----------------------------------------------------------------------------
   observeEvent(input$download_alpha, {
-    file_ID <- format(Sys.time(), "%H-%M-%S")
-    write.table(reactives$alpha_diversity_values, 
-                file = paste0(reactives$output_dir, "/output/Alpha-diversity_", 
-                              file_ID, ".txt"), 
-                sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
-    showModal(modalDialog(
-      title = "Info", paste0("File saved as 'Alpha-diversity_", 
-                             gsub("[[:punct:]]", "", input$metavar_alpha),
-                             "_", file_ID, 
-                             ".txt' in your output folder."),
-      footer = tagList(modalButton("Ok"))))
+    if(is.null(reactives$alpha_diversity_download)) {
+      showModal(modalDialog(
+        title = "Error 6a", "Please do an alpha diversity analysis first."))
+    } else {
+      file_name <- paste0(
+        "Alpha-diversity_",
+        gsub("[[:punct:]]", "", input$metavar_alpha), # Variable name
+        "_", format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+      write.table(
+        data.frame(Sample_ID = rownames(reactives$alpha_diversity_download),
+                   reactives$alpha_diversity_download), 
+        file = paste0(reactives$output_dir, "/output/", file_name), 
+        sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
+      showModal(modalDialog(
+        title = "Info", paste0("File saved as '", file_name,
+                               "' in your output folder."),
+        footer = tagList(modalButton("Ok"))))
+    }
+  })
+  
+  # ----------------------------------------------------------------------------
+  # Data download - beta diversity
+  # ----------------------------------------------------------------------------
+  observeEvent(input$download_beta, {
+    if(is.null(reactives$beta_diversity_download)) {
+      showModal(modalDialog(
+        title = "Error 6b", "Please do a beta diversity analysis first."))
+    } else {
+      file_name <- paste0(
+        "Beta-diversity_",
+        substr(input$plot_beta, 6, 9), "_", # nMDS or PCoA
+        gsub("[[:punct:]]", "", input$metavar_beta), # Variable name
+        "_", format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+      write.table(
+        data.frame(Sample_ID = rownames(reactives$beta_diversity_download),
+                   reactives$beta_diversity_download), 
+        file = paste0(reactives$output_dir, "/output/", file_name), 
+        sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
+      showModal(modalDialog(
+        title = "Info", paste0("File saved as '", file_name,
+                               "' in your output folder."),
+        footer = tagList(modalButton("Ok"))))
+    }
+  })
+
+  # ----------------------------------------------------------------------------
+  # Data download - taxonomy
+  # ----------------------------------------------------------------------------
+  observeEvent(input$download_taxonomy, {
+    if(is.null(reactives$taxonomy_download)) {
+      showModal(modalDialog(
+        title = "Error 6c", "Please do a taxonomy analysis first."))
+    } else {
+      file_name <- paste0(
+        "Taxonomy_",
+        input$taxonomy_level, "_", # Taxonomic level
+        gsub("[[:punct:]]", "", input$metavar_taxonomy), # Variable name
+        "_", format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+      write.table(
+        select(reactives$taxonomy_download, -Row.names), 
+        file = paste0(reactives$output_dir, "/output/", file_name), 
+        sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
+      showModal(modalDialog(
+        title = "Info", paste0("File saved as '", file_name,
+                               "' in your output folder."),
+        footer = tagList(modalButton("Ok"))))
+    }
   })
 }
