@@ -467,13 +467,13 @@ server <- function(input, output, session) {
           log(sum(x > 0))
       }
       # Calculate alpha diversity indices for current metadata
-      reactives$alpha_diversity_values <- data.frame(
+      reactives$alpha_diversity_data <- data.frame(
         Richness = apply(reactives$featuredata_6, 2, Richness.function),
         Shannon = apply(reactives$featuredata_6, 2, Shannon.function),
         Inv.Simpson = apply(reactives$featuredata_6, 2, InvSimpson.function),
         Simpson = apply(reactives$featuredata_6, 2, Simpson.function),
         Evenness = apply(reactives$featuredata_6, 2, Evenness.function))
-      rownames(reactives$alpha_diversity_values) <- 
+      rownames(reactives$alpha_diversity_data) <- 
         colnames(reactives$featuredata_6)
       
       # ------------------------------------------------------------------------
@@ -522,8 +522,8 @@ server <- function(input, output, session) {
       # ------------------------------------------------------------------------
       # Save alpha diversity values
       write.table(
-        data.frame(Sample_ID = rownames(reactives$alpha_diversity_values), 
-                   reactives$alpha_diversity_values), 
+        data.frame(Sample_ID = rownames(reactives$alpha_diversity_data), 
+                   reactives$alpha_diversity_data), 
         file = paste0(reactives$output_dir, "/output/Alpha-diversity_values.txt"),
         row.names = FALSE, sep = "\t", quote = FALSE)
       # Save beta diversity distance matrix
@@ -996,6 +996,9 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$alpha_analysis, {
     print(paste0("INFO - alpha diversity analysis - ", Sys.time()))
+    # Save input as reactive variables for download
+    reactives$metavar_alpha <- input$metavar_alpha
+    reactives$subvar_alpha <- input$subvar_alpha
     # Filter feature and metadata according to sample selection
     samples_deselected <- Sample_selection_check()
     Metadata <- 
@@ -1003,7 +1006,7 @@ server <- function(input, output, session) {
                                    samples_deselected, ]
     # Select alpha diversity values for selected samples
     alpha_diversity_result <- 
-      reactives$alpha_diversity_values[!rownames(reactives$metadata_6) %in% 
+      reactives$alpha_diversity_data[!rownames(reactives$metadata_6) %in% 
                                          samples_deselected ,]
     # Perform z-transformation if needed
     if (input$scaling == "Z-normalized values") {
@@ -1013,60 +1016,16 @@ server <- function(input, output, session) {
           row.names = rownames(alpha_diversity_result))
     }
     # Attach variables of interest for alpha diversity
-    alpha_diversity_result["Group"] <- Metadata[paste0(input$metavar_alpha)]
-    if(input$subvar_alpha != "ignore") {
-      alpha_diversity_result["Subgroup"] <- Metadata[paste0(input$subvar_alpha)]
+    alpha_diversity_result["Group"] <- Metadata[paste0(reactives$metavar_alpha)]
+    if(reactives$subvar_alpha != "ignore") {
+      alpha_diversity_result["Subgroup"] <- Metadata[paste0(reactives$subvar_alpha)]
     }
     # Generate format for download
     reactives$alpha_diversity_download <- alpha_diversity_result
-    # Generate the alpha diversity plot
-    if(input$subvar_alpha != "ignore") {
-      alpha_diversity_result_plot <- melt(alpha_diversity_result,
-                                        id.vars = c("Group", "Subgroup"))
-    } else {
-      alpha_diversity_result_plot <- melt(alpha_diversity_result,
-                                          id.vars = "Group")
-    }
-    # Build alpha diversity boxplot
-    alpha_diversity_plot <- 
-      ggplot(data = alpha_diversity_result_plot, aes(x = Group, y = value)) +
-      geom_boxplot(aes(colour = Group, fill = Group)) +
-      geom_point(aes(text = paste("Group:", Group,
-                                  "\nvalue:", round(value, 3))), size = 1.5) +
-      theme(strip.text.x = element_text(size = 8)) +
-      plot_theme +
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
-            axis.title = element_blank()) +
-      scale_colour_manual(input$metavar_alpha, values = theme_colours) +
-      scale_fill_manual(input$metavar_alpha, values = alpha(theme_colours, 0.5))
-    # Build facets based on selected number of variables and scaling
-    if (input$subvar_alpha != "ignore" && input$scaling == "Z-normalized values") {
-      alpha_diversity_plot <- alpha_diversity_plot + 
-        facet_wrap(Subgroup ~ variable, 
-                   nrow = length(unique(alpha_diversity_result_plot$Subgroup)),
-                   scales = "free_x")
-    } else if (input$subvar_alpha != "ignore") {
-      alpha_diversity_plot <- alpha_diversity_plot +
-        facet_wrap(Subgroup ~ variable, 
-                   ncol = length(levels(alpha_diversity_result_plot$variable)), 
-                   scales = "free")      
-    } else if (input$scaling == "Z-normalized values") {
-      alpha_diversity_plot <- alpha_diversity_plot +
-        facet_wrap(. ~ variable, 
-                   ncol = length(levels(alpha_diversity_result_plot$variable)))
-    } else {
-      alpha_diversity_plot <- alpha_diversity_plot +
-        facet_wrap(. ~ variable, 
-                   ncol = length(levels(alpha_diversity_result_plot$variable)), 
-                   scales = "free_y")
-    }
-    output$plot <- renderPlotly({
-      ggplotly(alpha_diversity_plot, tooltip = "text")
-    })
     # Calculate pvalue table for alpha diversity
-    if(input$subvar_alpha != "ignore") {
+    if(reactives$subvar_alpha != "ignore") {
       alpha_diversity_table <- as.data.frame(
-        sapply(colnames(reactives$alpha_diversity_values), function(y) 
+        sapply(colnames(reactives$alpha_diversity_data), function(y) 
           sapply(unique(alpha_diversity_result$Subgroup), function(x)
             if(length(unique(subset(alpha_diversity_result, 
                                     Subgroup == x)[, "Group"])) == 1) {
@@ -1077,7 +1036,7 @@ server <- function(input, output, session) {
                                          Subgroup == x))$p.value})))
     } else {
       alpha_diversity_table <- as.data.frame(
-        sapply(colnames(reactives$alpha_diversity_values), function(y) 
+        sapply(colnames(reactives$alpha_diversity_data), function(y) 
           if(length(unique(alpha_diversity_result$Group)) == 1) {
             1 # print 1 if there is only one category in "Group"
           } else {
@@ -1086,30 +1045,67 @@ server <- function(input, output, session) {
       colnames(alpha_diversity_table) <- "Group"
       alpha_diversity_table <- as.data.frame(t(alpha_diversity_table))
     }
-    # Round pvalues and output the table
+    # Round pvalues of the table
     alpha_diversity_table <- signif(alpha_diversity_table, 2)
+    # Generate the alpha diversity plot
+    if(reactives$subvar_alpha != "ignore") {
+      alpha_diversity_result <- melt(alpha_diversity_result,
+                                        id.vars = c("Group", "Subgroup"))
+    } else {
+      alpha_diversity_result <- melt(alpha_diversity_result,
+                                          id.vars = "Group")
+    }
+    # Build alpha diversity plot
+    alpha_diversity_plot <- 
+      ggplot(data = alpha_diversity_result, aes(x = Group, y = value)) +
+      geom_boxplot(aes(colour = Group, fill = Group)) +
+      geom_point(aes(text = paste0("Group: ", Group,
+                                  "\n", variable, " value: ", round(value, 3))), size = 1.5) +
+      theme(strip.text.x = element_text(size = 8)) +
+      plot_theme +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+            axis.title = element_blank()) +
+      scale_colour_manual(reactives$metavar_alpha, values = theme_colours) +
+      scale_fill_manual(reactives$metavar_alpha, values = alpha(theme_colours, 0.5))
+    # Build facets based on selected number of variables and scaling
+    if (reactives$subvar_alpha != "ignore" && input$scaling == "Z-normalized values") {
+      alpha_diversity_plot <- alpha_diversity_plot + 
+        facet_wrap(Subgroup ~ variable, 
+                   nrow = length(unique(alpha_diversity_result$Subgroup)),
+                   scales = "free_x")
+    } else if (reactives$subvar_alpha != "ignore") {
+      alpha_diversity_plot <- alpha_diversity_plot +
+        facet_wrap(Subgroup ~ variable, 
+                   ncol = length(levels(alpha_diversity_result$variable)), 
+                   scales = "free")      
+    } else if (input$scaling == "Z-normalized values") {
+      alpha_diversity_plot <- alpha_diversity_plot +
+        facet_wrap(. ~ variable, 
+                   ncol = length(levels(alpha_diversity_result$variable)))
+    } else {
+      alpha_diversity_plot <- alpha_diversity_plot +
+        facet_wrap(. ~ variable, 
+                   ncol = length(levels(alpha_diversity_result$variable)), 
+                   scales = "free_y")
+    }
+    # Output plot, empty line and p-value table
+    output$plot <- renderPlotly({
+      ggplotly(alpha_diversity_plot, tooltip = "text")
+    })
+    output$text <- renderText({""})
     output$table <- DT::renderDataTable({alpha_diversity_table})
-    # Show an empty line between plot and table
-    output$text <- renderText({"" })
     shinyjs::show("text")
     shinyjs::show("table")
   })
   
-  # Check that metavar and subvar in alpha diversity are not the same
-  observeEvent(input$subvar_alpha, {
-    if(input$subvar_alpha == input$metavar_alpha) {
-      showModal(modalDialog(
-        title = "Warning 3", "Please choose a second variable for alpha diversity
-        that is different from your main variable."))
-      updateSelectInput(session, inputId = "subvar_alpha", selected = "ignore")
-    }
-  })
-
   # ----------------------------------------------------------------------------
   # Beta diversity analysis
   # ----------------------------------------------------------------------------
   observeEvent(input$beta_analysis, {
     print(paste0("INFO - beta diversity analysis - ", Sys.time()))
+    # Save input as reactive variables for download
+    reactives$metavar_beta <- input$metavar_beta
+    reactives$plot_beta <- input$plot_beta
     # Filter feature and metadata according to sample selection
     samples_deselected <- Sample_selection_check()
     Metadata <- 
@@ -1120,50 +1116,51 @@ server <- function(input, output, session) {
                                       samples_deselected]
     Featuredata_freq <- decostand(t(Featuredata), method = "total")
     # Calculate visualization for nMDS
-    if (input$plot_beta == "beta_nmds") {
+    if (reactives$plot_beta == "beta_nmds") {
       set.seed(1)
-      beta_diversity_values <- 
+      beta_diversity_data <- 
         metaMDS(Featuredata_freq, distance = "bray", k = 2, 
                 autotransform = FALSE)
-      beta_diversity_results <- data.frame(
-        Axis1 = beta_diversity_values$points[, 1],
-        Axis2 = beta_diversity_values$points[, 2])
-      rownames(beta_diversity_results) <- 
-        dimnames(beta_diversity_values$points)[[1]]
+      beta_diversity_result <- data.frame(
+        Axis1 = beta_diversity_data$points[, 1],
+        Axis2 = beta_diversity_data$points[, 2])
+      rownames(beta_diversity_result) <- 
+        dimnames(beta_diversity_data$points)[[1]]
     # Calculate visualization for PCoA
-    } else if (input$plot_beta == "beta_pcoa") {
+    } else if (reactives$plot_beta == "beta_pcoa") {
       set.seed(1)
-      beta_diversity_values <- 
+      beta_diversity_data <- 
         cmdscale(vegdist(Featuredata_freq, distance = "bray"), k = 2, 
                  eig = FALSE, add = FALSE, x.ret = FALSE)
-      beta_diversity_results <- data.frame(
-        Axis1 = beta_diversity_values[, 1],
-        Axis2 = beta_diversity_values[, 2])
-      rownames(beta_diversity_results) <- dimnames(beta_diversity_values)[[1]]
+      beta_diversity_result <- data.frame(
+        Axis1 = beta_diversity_data[, 1],
+        Axis2 = beta_diversity_data[, 2])
+      rownames(beta_diversity_result) <- dimnames(beta_diversity_data)[[1]]
     }
     # Attach metadata variable and calculate pvalue for beta diversity
-    beta_diversity_results["Group"] <- Metadata[paste0(input$metavar_beta)]
-    if(length(unique(beta_diversity_results$Group)) <= 1) {
-      betadiv_pvalue <- NA
+    beta_diversity_result[reactives$metavar_beta] <- 
+      Metadata[paste0(reactives$metavar_beta)]
+    if(length(unique(beta_diversity_result[[reactives$metavar_beta]])) <= 1) {
+      beta_diversity_pvalue <- NA
     } else {
       set.seed(1)
-      betadiv_pvalue <- 
+      beta_diversity_pvalue <- 
         signif(adonis(vegdist(Featuredata_freq, method = "bray") ~ 
-                 as.factor(beta_diversity_results$Group))$aov.tab$'Pr(>F)'[1], 2)
+                 as.factor(beta_diversity_result[[reactives$metavar_beta]]))$aov.tab$'Pr(>F)'[1], 2)
     }
     # Generate format for download
-    reactives$beta_diversity_download <- beta_diversity_results
+    reactives$beta_diversity_download <- beta_diversity_result
     # Output plot and pvalue
     output$plot <- renderPlotly({
-      ggplot(data = beta_diversity_results, 
-             aes(x = Axis1, y = Axis2, colour = Group)) +
-        geom_point(aes(text = paste("Sample:", rownames(beta_diversity_results)))) +
+      ggplot(data = beta_diversity_result, 
+             aes(x = Axis1, y = Axis2, colour = !!sym(reactives$metavar_beta))) +
+        geom_point(aes(text = paste("Sample:", rownames(beta_diversity_result)))) +
         stat_ellipse() +
         plot_theme +
         scale_colour_manual(values = theme_colours)
     })
     output$text <- renderText({
-      paste0("p-value = ", betadiv_pvalue)
+      paste0("p-value = ", beta_diversity_pvalue)
     })
     shinyjs::show("text")
     shinyjs::hide("table")
@@ -1174,6 +1171,9 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$tax_analysis, {
     print(paste0("INFO - taxonomy analysis - ", Sys.time()))
+    # Save input as reactive variables for download
+    reactives$metavar_taxonomy <- input$metavar_taxonomy
+    reactives$taxonomy_level <- input$taxonomy_level
     # Filter feature and metadata according to sample selection
     samples_deselected <- Sample_selection_check()
     Metadata <- 
@@ -1182,62 +1182,61 @@ server <- function(input, output, session) {
     Featuredata <- 
       reactives$featuredata_6[, !colnames(reactives$featuredata_6) %in%
                                       samples_deselected]
-    # Merge taxonomic level and featuredata
     Featuredata_freq <- t(decostand(t(Featuredata), method = "total"))
-    Taxonomy_data <- 
-      merge(Featuredata_freq, reactives$taxonomy_data[input$taxonomy_level], 
+    # Merge taxonomic level and featuredata
+    taxonomy_result <- 
+      merge(Featuredata_freq, reactives$taxonomy_data[reactives$taxonomy_level], 
             by = 0, all.x = TRUE)
     # Sum up frequencies with identical taxonomy
-    Taxonomy_data <- Taxonomy_data %>% 
-      group_by(.data[[input$taxonomy_level]]) %>%
+    taxonomy_result <- taxonomy_result %>% 
+      group_by(.data[[reactives$taxonomy_level]]) %>%
       summarise(across(.cols = is.numeric, .fns = sum, .names = "{col}")) %>%
       as.data.frame()
     # Check that the chosen number of taxa is available
-    if(input$top_number_taxa > nrow(Taxonomy_data)) {
-      top_number_taxa <- nrow(Taxonomy_data)
+    if(input$top_number_taxa > nrow(taxonomy_result)) {
+      top_number_taxa <- nrow(taxonomy_result)
       updateNumericInput(session, inputId = "top_number_taxa", 
-                         value = nrow(Taxonomy_data))
+                         value = nrow(taxonomy_result))
       showModal(modalDialog(
-        title = "Warning 4", 
-        paste0("There are only ", nrow(Taxonomy_data), " different taxa at ", 
-               input$taxonomy_level, " level. The top number of taxa displayed 
-               is set to ", nrow(Taxonomy_data), ".")))
+        title = "Warning 3", 
+        paste0("There are only ", nrow(taxonomy_result), " different taxa at ", 
+               reactives$taxonomy_level, " level. The top number of taxa 
+               displayed is set to ", nrow(taxonomy_result), ".")))
     } else {
       top_number_taxa <- input$top_number_taxa
     }
-    metavar_taxonomy <- input$metavar_taxonomy
     # Attach meta variable of interest
-    rownames(Taxonomy_data) <- Taxonomy_data[[input$taxonomy_level]]
-    Taxonomy_data[[input$taxonomy_level]] <- NULL
-    Taxonomy_data <- as.data.frame(t(Taxonomy_data))
-    Taxonomy_data <- 
-      merge(Taxonomy_data, 
-            Metadata[, colnames(Metadata) == metavar_taxonomy, drop = FALSE], 
+    rownames(taxonomy_result) <- taxonomy_result[[reactives$taxonomy_level]]
+    taxonomy_result[[reactives$taxonomy_level]] <- NULL
+    taxonomy_result <- as.data.frame(t(taxonomy_result))
+    taxonomy_result <- 
+      merge(taxonomy_result, 
+            Metadata[, colnames(Metadata) == reactives$metavar_taxonomy, drop = FALSE], 
             by = 0, all = TRUE)
-    Taxonomy_data[[metavar_taxonomy]] <- 
-      as.character(Taxonomy_data[[metavar_taxonomy]])
+    taxonomy_result[[reactives$metavar_taxonomy]] <- 
+      as.character(taxonomy_result[[reactives$metavar_taxonomy]])
     # Build mean frequency per selected group
-    Taxonomy_data <- Taxonomy_data %>%
-      group_by(.data[[metavar_taxonomy]]) %>%
+    taxonomy_result <- taxonomy_result %>%
+      group_by(.data[[reactives$metavar_taxonomy]]) %>%
       summarise(across(.cols = is.numeric, .fns = mean, .names = "{col}")) %>%
       as.data.frame()
     # Select top taxa per group or overall
     if(input$per_group_overall == "Overall") {
-      Top_taxa <- Taxonomy_data %>%
+      Top_taxa <- taxonomy_result %>%
         select_if(is.numeric) %>%
         colMeans() %>% 
         sort(decreasing = TRUE)
       Top_taxa <- names(Top_taxa[1:top_number_taxa])
     } else if (input$per_group_overall == "Per group") {
-      Top_taxa <- Taxonomy_data %>%
-        group_by(.data[[metavar_taxonomy]]) %>%
+      Top_taxa <- taxonomy_result %>%
+        group_by(.data[[reactives$metavar_taxonomy]]) %>%
         select_if(is.numeric) %>%
         group_map(~ names(sort(.x, decreasing = TRUE)[1:top_number_taxa]))
       Top_taxa <- unique(unlist(Top_taxa))
     }
     # Summarise other taxa into "Others"
     Top_taxa <- sort(Top_taxa)
-    Taxonomy_others <- Taxonomy_data %>% 
+    Taxonomy_others <- taxonomy_result %>% 
       select_if(is.numeric) %>%
       select(-all_of(Top_taxa)) %>%
       rowSums() %>% 
@@ -1245,28 +1244,28 @@ server <- function(input, output, session) {
     colnames(Taxonomy_others) <- "Others"
     # Prevent showing an empty "Others" category in the plot
     if(colSums(Taxonomy_others) != 0) {
-      Taxonomy_data <- merge(Taxonomy_others,
-                             Taxonomy_data[, c(Top_taxa, metavar_taxonomy)],
+      taxonomy_result <- merge(Taxonomy_others,
+                             taxonomy_result[, c(Top_taxa, reactives$metavar_taxonomy)],
                              by = 0, all = TRUE)
     } else { # Prevent a bug in melt() when "Others" don't exist
-      Taxonomy_data["Row.names"] <- rownames(Taxonomy_data)
+      taxonomy_result["Row.names"] <- rownames(taxonomy_result)
     }
     # Generate format for download
-    reactives$taxonomy_download <- Taxonomy_data[, order(ncol(Taxonomy_data):1)]
+    reactives$taxonomy_download <- taxonomy_result[, order(ncol(taxonomy_result):1)]
     # Plot the result
-    Taxonomy_data <- melt(
-      Taxonomy_data, id.vars = c("Row.names", metavar_taxonomy), 
+    taxonomy_result <- melt(
+      taxonomy_result, id.vars = c("Row.names", reactives$metavar_taxonomy), 
       value.name = "Relative Abundance") # Space needed to avoid a plotly bug
-    colnames(Taxonomy_data)[colnames(Taxonomy_data) == "variable"] <- "Taxonomy"
-    taxonomy_plot <- ggplot(data = Taxonomy_data, 
-                            aes(x = !!sym(metavar_taxonomy), 
+    colnames(taxonomy_result)[colnames(taxonomy_result) == "variable"] <- "Taxonomy"
+    taxonomy_plot <- ggplot(data = taxonomy_result, 
+                            aes(x = !!sym(reactives$metavar_taxonomy), 
                                 y = !!sym("Relative Abundance"),  
                                 fill = Taxonomy)) +
       geom_bar(position = "fill", stat = "identity") + 
       plot_theme +
       ylab("Relative Abundance") +
       scale_y_continuous(expand = c(0, 0)) +
-      xlab(metavar_taxonomy)
+      xlab(reactives$metavar_taxonomy)
     if(colSums(Taxonomy_others) != 0) {
       taxonomy_plot <- taxonomy_plot +
         scale_fill_manual("Taxonomy", values = c("#d1d1d1", theme_colours))
@@ -1280,12 +1279,12 @@ server <- function(input, output, session) {
     shinyjs::hide("text")
     shinyjs::hide("table")
   })
-  getOption("digits")
+
   # Check that the user does not select a taxonomy level that is not available
   observeEvent(input$taxonomy_level, {
     if(!(input$taxonomy_level %in% colnames(reactives$taxonomy_data))) {
       showModal(modalDialog(
-        title = "Warning 5", paste0("It seems that your taxonomic annotation does 
+        title = "Warning 4", paste0("It seems that your taxonomic annotation does 
         not provide information on ", input$taxonomy_level, " level. Please 
         select a lower taxonomic level for analysis.")))
       updateRadioButtons(session, inputId = "taxonomy_level", 
@@ -1332,7 +1331,10 @@ server <- function(input, output, session) {
     } else {
       file_name <- paste0(
         "Alpha-diversity_",
-        gsub("[[:punct:]]", "", input$metavar_alpha), # Variable name
+        gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_alpha), # Variable name
+        if(reactives$subvar_alpha != "ignore") {
+          paste0(gsub("[^0-9a-zA-Z_-]", "", reactives$subvar_alpha), "_")
+        },
         "_", format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
       write.table(
         data.frame(Sample_ID = rownames(reactives$alpha_diversity_download),
@@ -1345,7 +1347,7 @@ server <- function(input, output, session) {
         footer = tagList(modalButton("Ok"))))
     }
   })
-  
+
   # ----------------------------------------------------------------------------
   # Data download - beta diversity
   # ----------------------------------------------------------------------------
@@ -1356,8 +1358,8 @@ server <- function(input, output, session) {
     } else {
       file_name <- paste0(
         "Beta-diversity_",
-        substr(input$plot_beta, 6, 9), "_", # nMDS or PCoA
-        gsub("[[:punct:]]", "", input$metavar_beta), # Variable name
+        substr(reactives$plot_beta, 6, 9), "_", # nMDS or PCoA
+        gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_beta), # Variable name
         "_", format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
       write.table(
         data.frame(Sample_ID = rownames(reactives$beta_diversity_download),
@@ -1381,8 +1383,8 @@ server <- function(input, output, session) {
     } else {
       file_name <- paste0(
         "Taxonomy_",
-        input$taxonomy_level, "_", # Taxonomic level
-        gsub("[[:punct:]]", "", input$metavar_taxonomy), # Variable name
+        reactives$taxonomy_level, "_", # Taxonomic level
+        gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_taxonomy), # Variable name
         "_", format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
       write.table(
         select(reactives$taxonomy_download, -Row.names), 
