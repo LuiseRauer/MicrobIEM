@@ -29,8 +29,8 @@ start_MicrobIEM <- function() {
   library(DT)
   
   # Load ui and server files
-  source("MicrobIEM/ui.R"); 
-  source("MicrobIEM/server.R"); 
+  source("ui.R"); 
+  source("server.R"); 
   # Start the shiny app
   shinyApp(ui,server)
 }
