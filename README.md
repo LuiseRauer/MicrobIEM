@@ -1,17 +1,6 @@
 # MicrobIEM - draft
 
-### Content
-[1. Overview](#Overview)  
-[2. Prerequisites](#Prerequisites)  
-[3. Start the tool](#Start)  
-[4. Prepare your data](#Prepare)  
-[5. Perform quality control](#Qualitycontrol)  
-[6. Explore your data](#Explore)  
-[7. Select samples of interest](#Select)  
-[8. Save your figures](#Savefigures)  
-[9. Save your results](#Saveresults)
-
-### 1. Overview {#Overview}
+## 1. Overview
 
 <img src="MicrobIEM/man/01_Interface.png"/> 
 
@@ -28,14 +17,14 @@ MicrobIEM is a user-friendly tool for quality control and interactive analysis o
 - Beta diversity (PCoA, nMDS, on Bray-Curtis dissimilarities)
 - Taxonomy analysis
 
-### 2. Prerequisites {#Prerequisites}
+## 2. Prerequisites
 #### Download R
 Download and install the software package R from the [R project website](https://cran.r-project.org/bin/windows/base/).
 
 #### Download MicrobIEM
 Download MicrobIEM and save the folder on your machine. Unzip the folder and copy its directory.  
 
-### 3. Start the tool {#Start}
+## 3. Start the tool
 Open R and paste the following code chunk:
 ``` r
 setwd("C:/user/.../MicrobIEM") # Change to the directory of your MicrobIEM folder
@@ -45,7 +34,7 @@ start_MicrobIEM()
 The last item in the directory (first line) should be the unzipped MicrobIEM folder.  
 When you start MicrobIEM for the first time, this step may take some minutes because additional packages may need to be installed.
 
-### 4. Prepare your data {#Prepare}
+## 4. Prepare your data
 MicrobIEM requires the input data - a feature file and a meta file - to be in a specific format.
 
 #### Featurefile
@@ -62,17 +51,17 @@ The metafile contains additional information on each sample. It should be .txt o
 
 <img src="MicrobIEM/man/03_Metafile.png"/> 
 
-### 5. Perform quality control {#Qualitycontrol} 
+## 5. Perform quality control 
 <img src="MicrobIEM/man/04_Contaminant-removal.png"/> 
 
-### 6. Explore your data {#Explore}
+## 6. Explore your data
 <img src="MicrobIEM/man/05_Beta-diversity.png"/> 
 
-### 7. Select samples of interest {#Select}
+## 7. Select samples of interest
 <img src="MicrobIEM/man/06_Sample-selection.png"/> 
 
-### 8. Save your figures {#Savefigures}
+## 8. Save your figures
 <img src="MicrobIEM/man/07_Save-figures.png"/> 
 
-### 9. Save your results {#Saveresults}
+## 9. Save your results
 <img src="MicrobIEM/man/08_Save-results.png"/> 
