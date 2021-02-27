@@ -16,15 +16,6 @@ neg_ratio_steps <- c("ignore" = Inf,
                       "1" = 1,
                       "0.5" = 0.5,
                       "0.1" = 0.1)
-neg_span_steps <- c("ignore" = 0.0001,
-                    "100 %" = 1, 
-                    "80 %" = 0.8, 
-                    "75 %" = 0.75, 
-                    "60 %" = 0.6, 
-                    "50 %" = 0.5, 
-                    "40 %" = 0.4, 
-                    "25 %" = 0.25, 
-                    "20 %" = 0.2)
 
 #	Allow upload of files with max. size of 50 Mb
 options(shiny.maxRequestSize = 50*1024^2)
@@ -63,9 +54,6 @@ ui <- fluidPage(
                                "text/comma-separated-values,text/plain",
                                ".csv")),
           
-          # Start button for analysis
-          #actionButton(inputId = "start_button", label = "Start"),
-          
           # Choose visualization type for filtering
           selectInput(inputId = "visualization_type",
                       label = "Visualization", 
@@ -93,23 +81,18 @@ ui <- fluidPage(
           
           # Choose parameters for contamination filter - NEG1
           h4(tags$b("Contaminant filter based on NEG1"), id = "header_neg1"), 
-          tags$div(id = "placeholder"), # NEWLINE
           selectInput(inputId = "req_ratio_neg1",
                       label = "Frequency mean ratio (NEG1/SAMPLE)",		
                       choices = neg_ratio_steps),
-          selectInput(inputId = "req_span_neg1", 
-                      label = "Span threshold (NEG1)",
-                      choices = neg_span_steps),
-          
+          tags$div(id = "placeholder_span_1"), # NEWLINE
+
           # Choose parameters for contamination filter - NEG2
           h4(tags$b("Contaminant filter based on NEG2"), id = "header_neg2"), 
           selectInput(inputId = "req_ratio_neg2",
                       label = "Frequency mean ratio (NEG2/SAMPLE)",		
                       choices = neg_ratio_steps),
-          selectInput(inputId = "req_span_neg2", 
-                      label = "Span threshold (NEG2)",
-                      choices = neg_span_steps),
-          
+          tags$div(id = "placeholder_span_2"), # NEWLINE
+
           # -------------------------------------------------------------------
           # All buttons for filtering data 
           # -------------------------------------------------------------------
@@ -122,9 +105,11 @@ ui <- fluidPage(
       ) # Close tabset
     ), # Close sidebar
     
-    # Show a plot and a table in the main panel
+    # Show a plot, textoutput, and a table in the main panel
     mainPanel(
-      plotOutput("plot")
+      plotlyOutput("plot"),
+      textOutput("text"),
+      DT::dataTableOutput("table")
     )
   )
 )

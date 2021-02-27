@@ -1,0 +1,36 @@
+Sample_ID	Sample_type	Age_group	Gender	Dosage	BMI
+Sample_01	SAMPLE	young	male	20	23
+Sample_02	SAMPLE	young	female	40	26
+Sample_03	SAMPLE	young	male	80	22
+Sample_04	SAMPLE	young	female	20	30
+Sample_05	SAMPLE	adult	male	40	26
+Sample_06	SAMPLE	adult	female	80	23
+Sample_07	SAMPLE	adult	male	20	26
+Sample_08	SAMPLE	adult	female	40	27
+Sample_09	SAMPLE	adult	male	80	27
+Sample_10	SAMPLE	young	female	20	24
+Sample_11	SAMPLE	young	male	40	30
+Sample_12	SAMPLE	young	female	80	26
+Sample_13	SAMPLE	young	male	20	NA
+Sample_14	SAMPLE	young	female	40	18
+Sample_15	SAMPLE	young	male	80	28
+Sample_16	SAMPLE	young	female	20	25
+Sample_17	SAMPLE	young	male	40	25
+Sample_18	SAMPLE	young	female	80	28
+Sample_19	SAMPLE	young	male	20	27
+Sample_20	SAMPLE	young	female	40	27
+Sample_21	SAMPLE	young	male	80	28
+Sample_22	SAMPLE	young	female	20	27
+Sample_23	SAMPLE	young	male	40	25
+Sample_24	SAMPLE	young	female	80	19
+Sample_25	SAMPLE	adult	male	20	27
+Sample_26	SAMPLE	adult	female	40	25
+Sample_27	SAMPLE	adult	male	80	25
+Sample_28	SAMPLE	adult	female	20	21
+Sample_29	SAMPLE	adult	male	40	24
+Sample_30	POS1				
+Sample_31	NEG1				
+Sample_32	NEG1				
+Sample_33	NEG1				
+Sample_34	NEG2				
+Sample_35	NEG2				
