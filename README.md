@@ -42,7 +42,7 @@ setwd("C:/user/.../MicrobIEM") # Change to the directory of your MicrobIEM folde
 source("start_MicrobIEM.R")
 start_MicrobIEM()
 ```
-The last item in the directory (first line) should the unzipped MicrobIEM folder.
+The last item in the directory (first line) should be the unzipped MicrobIEM folder.  
 When you start MicrobIEM for the first time, this step may take some minutes because additional packages may need to be installed.
 
 ### 4. Prepare your data {#Prepare}
