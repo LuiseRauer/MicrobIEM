@@ -190,9 +190,9 @@ server <- function(input, output, session) {
       neg1_span_values <- seq(1, ncol(reactives$featuredata_neg1))
       reactives$neg1_span_steps <- setNames(
         c(0.0001, neg1_span_values/length(neg1_span_values)), 
-        nm = c("ignore", paste0(neg1_span_values, " (",
-                    round(neg1_span_values/length(neg1_span_values)*100, 0), 
-                    "%)")))
+        nm = c("ignore", paste0(
+          round(neg1_span_values/length(neg1_span_values), 2), " (",
+          neg1_span_values, "/", length(neg1_span_values), ")")))
       reactives$req_span_neg1 <- reactives$neg1_span_steps[1]
       reactives$req_span_neg1_old <- reactives$req_span_neg1
       # Subset NEG2 control samples 
@@ -207,9 +207,9 @@ server <- function(input, output, session) {
       neg2_span_values <- seq(1, ncol(reactives$featuredata_neg2))
       reactives$neg2_span_steps <- setNames(
         c(0.0001, neg2_span_values/length(neg2_span_values)), 
-        nm = c("ignore", paste0(neg2_span_values, " (",
-                                round(neg2_span_values/length(neg2_span_values)*100, 0), 
-                                "%)")))
+        nm = c("ignore", paste0(
+          round(neg2_span_values/length(neg2_span_values), 2), " (",
+          neg2_span_values, "/", length(neg2_span_values), ")")))
       reactives$req_span_neg2 <- reactives$neg2_span_steps[1]
       reactives$req_span_neg2_old <- reactives$req_span_neg2
       
@@ -483,8 +483,9 @@ server <- function(input, output, session) {
         reactives$output_dir <- gsub(":", "_", format(Sys.time(), 
                                                       "%Y_%m_%d_%a_%X"))
         if (!dir.exists(reactives$output_dir)){
-          dir.create(paste0(reactives$output_dir, "/output"), recursive = TRUE)
-          dir.create(paste0(reactives$output_dir, "/quality_control"), recursive = TRUE)
+          dir.create(paste0(reactives$output_dir, "/1_final-data-output"), recursive = TRUE)
+          dir.create(paste0(reactives$output_dir, "/2_quality-control"), recursive = TRUE)
+          dir.create(paste0(reactives$output_dir, "/3_analysis-output"), recursive = TRUE)
           print(paste0("INFO - output directory created - ", Sys.time()))
         }
       }
@@ -499,7 +500,7 @@ server <- function(input, output, session) {
       colnames(featuredata_current)[1] <- "OTU_ID"
       write.table(
         featuredata_current, 
-        file = paste0(reactives$output_dir, "/output/Featuretable_final.txt"),
+        file = paste0(reactives$output_dir, "/1_final-data-output/Featuretable_final.txt"),
         row.names = FALSE, sep = "\t", quote = FALSE)
       # Save final featuretable with relative abundance
       featuredata_current_rel <- 
@@ -510,11 +511,11 @@ server <- function(input, output, session) {
       colnames(featuredata_current_rel)[1] <- "OTU_ID"
       write.table(
         featuredata_current_rel, 
-        file = paste0(reactives$output_dir, "/output/Featuretable_final_frequency.txt"),
+        file = paste0(reactives$output_dir, "/1_final-data-output/Featuretable_final_frequency.txt"),
         row.names = FALSE, sep = "\t", quote = FALSE)
       # Save final metatable
       write.table(reactives$metadata_6, 
-        file = paste0(reactives$output_dir, "/output/Metatable_final.txt"),
+        file = paste0(reactives$output_dir, "/1_final-data-output/Metatable_final.txt"),
         row.names = FALSE, sep = "\t", quote = FALSE)
       
       # ------------------------------------------------------------------------
@@ -524,7 +525,7 @@ server <- function(input, output, session) {
       write.table(
         data.frame(Sample_ID = rownames(reactives$alpha_diversity_data), 
                    reactives$alpha_diversity_data), 
-        file = paste0(reactives$output_dir, "/output/Alpha-diversity_values.txt"),
+        file = paste0(reactives$output_dir, "/3_analysis-output/Alpha-diversity_values.txt"),
         row.names = FALSE, sep = "\t", quote = FALSE)
       # Save beta diversity distance matrix
       distance_matrix <- as.data.frame(
@@ -533,14 +534,14 @@ server <- function(input, output, session) {
       write.table(
         data.frame(Sample_ID = rownames(distance_matrix), distance_matrix,
                    check.names = FALSE), 
-        file = paste0(reactives$output_dir, "/output/Beta-diversity_distance-matrix.txt"),
+        file = paste0(reactives$output_dir, "/3_analysis-output/Beta-diversity_distance-matrix.txt"),
         row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
       
       # Save contamination filter basis
       write.table(
         data.frame(OTU_ID = rownames(reactives$filter_basis), 
                    reactives$filter_basis), 
-        file = paste0(reactives$output_dir, "/quality_control/Contamination_filter_basis.txt"),
+        file = paste0(reactives$output_dir, "/2_quality-control/Contamination_filter_basis.txt"),
         row.names = FALSE, sep = "\t", quote = FALSE)
       # Save reduction of reads per feature by filter step
       Reduction_per_feature <- 
@@ -556,7 +557,7 @@ server <- function(input, output, session) {
       colnames(Reduction_per_feature)[1] <- "OTU_ID"
       write.table(
         Reduction_per_feature, 
-        file = paste0(reactives$output_dir, "/quality_control/Read_reduction_per_feature.txt"),
+        file = paste0(reactives$output_dir, "/2_quality-control/Read_reduction_per_feature.txt"),
         row.names = FALSE, sep = "\t", quote = FALSE)
       # Save reduction of reads per species by filter step 
       Reduction_per_taxonomy <- 
@@ -568,7 +569,7 @@ server <- function(input, output, session) {
                      sum, na.rm = TRUE)
       write.table(
         Reduction_per_taxonomy, 
-        file = paste0(reactives$output_dir, "/quality_control/Read_reduction_per_taxonomy.txt"),
+        file = paste0(reactives$output_dir, "/2_quality-control/Read_reduction_per_taxonomy.txt"),
         row.names = FALSE, sep = "\t", quote = FALSE)
 
       # ------------------------------------------------------------------------
@@ -592,7 +593,7 @@ server <- function(input, output, session) {
         "", "Span threshold (NEG2):", 
         names(reactives$neg2_span_steps[reactives$neg2_span_steps == 
                                           reactives$req_span_neg2])), 
-        sep = " "), paste0(reactives$output_dir, "/output/Filter_settings.txt"))
+        sep = " "), paste0(reactives$output_dir, "/1_final-data-output/Filter_settings.txt"))
       
       # ------------------------------------------------------------------------
       # Information for the user for analysis
@@ -603,10 +604,11 @@ server <- function(input, output, session) {
                sum(rowSums(reactives$featuredata_6)), " reads in ", 
                nrow(reactives$featuredata_6), 
                " features remaining for analysis.", 
-               "<br><br> The following files have
-               been saved in your output folder: 
+               "<br><br> A new output directory '", reactives$output_dir, 
+               "' has been created in your working directory. 
+               The following files have been saved: 
                <br>&#8226 Filtered metafile and featurefile,
-               <br>&#8226 Logfile for filter settings,
+               <br>&#8226 Filter settings and quality control files,
                <br>&#8226 Raw values for alpha and beta diversity analysis.")),
         footer = tagList(modalButton("Ok"))
       ))
@@ -616,12 +618,12 @@ server <- function(input, output, session) {
     # Provide information for visualisation and build filtering plots
     # --------------------------------------------------------------------------
     if(input$visualization_type == "Correlation of reads and features") {
-      data_to_plot <- data.frame(
-        reads = colSums(reactives$featuredata_current),
-        features = apply(reactives$featuredata_current, 2, function(x) sum(x > 0)))
+      correlation_plot <- data.frame(
+        Reads = colSums(reactives$featuredata_current),
+        Features = apply(reactives$featuredata_current, 2, function(x) sum(x > 0)))
       output$plot <- renderPlotly({
-        ggplot(data = data_to_plot, aes(x = reads, y = features)) +
-          geom_point(aes(text = paste("sample:", rownames(data_to_plot))),
+        ggplot(data = correlation_plot, aes(x = Reads, y = Features)) +
+          geom_point(aes(text = paste("Sample:", rownames(correlation_plot))),
                      colour = "#2fa4e7") +
           plot_theme
       })
@@ -633,19 +635,26 @@ server <- function(input, output, session) {
         reads_now = rowSums(reactives$featuredata_current)), by = 0, all = TRUE)
       data_to_plot[is.na(data_to_plot)] <- 0.1
       data_to_plot[data_to_plot == 0] <- 0.1
-      data_to_plot <- transform(data_to_plot, status = ifelse(reads_now == 0.1, 
+      data_to_plot <- transform(data_to_plot, Status = ifelse(reads_now == 0.1, 
                                                               "removed", "kept"))
+      # Attach last taxonomy
+      data_to_plot <- 
+        merge(data_to_plot, 
+              data.frame(Taxonomy = apply(reactives$taxonomy_data, 1, function(x) 
+                tail(x[x != "no_Annotation"], 1))),
+              by.x = "Row.names", by.y = 0, all.x = TRUE)
       abundance_plot <- 
         ggplot(data = data_to_plot, aes(x = reads_before, y = reads_now, 
-                                        colour = status)) +
+                                        colour = Status)) +
         geom_abline(slope = 1, intercept = 0,  colour = "#9ed3f3") +
-        geom_point(aes(text = paste("feature:", Row.names,
-                                    "\nreads before:", reads_before,
-                                    "\nreads now:", round(reads_now, 0),
-                                    "\nstatus:", status))) +
+        geom_point(aes(text = paste("Feature:", Row.names,
+                                    "\nTaxonomy:", Taxonomy,
+                                    "\nReads before:", reads_before,
+                                    "\nReads now:", round(reads_now, 0),
+                                    "\nStatus:", Status))) +
         scale_colour_manual(values = c("#2fa4e7", "#757575")) +
         scale_x_log10() + scale_y_log10() +
-        xlab("reads before") + ylab("reads now") +
+        xlab("Reads before") + ylab("Reads now") +
         plot_theme
       output$plot <- renderPlotly({
         ggplotly(abundance_plot, tooltip = "text")
@@ -675,15 +684,19 @@ server <- function(input, output, session) {
               geom_vline(aes(xintercept = as.numeric(req_ratio_neg1)))
           }
           contamination_plot <- contamination_plot +
-            geom_point(aes(text = paste("feature:", rownames(reactives$filter_basis),
-                                        "\ntaxonomy:", reactives$filter_basis$Taxonomy))) +
+            geom_point(aes(text = paste("Feature:", rownames(reactives$filter_basis),
+                                        "\nTaxonomy:", reactives$filter_basis$Taxonomy,
+                                        "\nRatio (NEG1):", round(ratio_neg1, 3),
+                                        "\nSpan (NEG1):", round(neg1_span, 2),
+                                        "\nMean rel. abundance (samples):", signif(sample_mean, 2),
+                                        "\nStatus:", status))) +
             scale_x_log10() +
             scale_colour_manual("Status", values = contamination_neg1_colours) +
             scale_size_continuous("") +
             xlab("Ratio (NEG1)") + ylab("Span (NEG1)") +
             plot_theme
           output$plot <- renderPlotly({
-            contamination_plot
+            ggplotly(contamination_plot, tooltip = "text")
           })
         }
         if(input$visualization_type == "Contamination removal - NEG2") {
@@ -702,15 +715,19 @@ server <- function(input, output, session) {
               geom_vline(aes(xintercept = as.numeric(req_ratio_neg2)))
           }
           contamination_plot <- contamination_plot +
-            geom_point(aes(text = paste("feature:", rownames(reactives$filter_basis),
-                                        "\ntaxonomy:", reactives$filter_basis$Taxonomy))) +
+            geom_point(aes(text = paste("Feature:", rownames(reactives$filter_basis),
+                                        "\nTaxonomy:", reactives$filter_basis$Taxonomy,
+                                        "\nRatio (NEG2):", round(ratio_neg2, 3),
+                                        "\nSpan (NEG2):", round(neg2_span, 2),
+                                        "\nMean rel. abundance (samples):", signif(sample_mean, 2),
+                                        "\nStatus:", status))) +
             scale_x_log10() +
             scale_colour_manual("Status", values = contamination_neg2_colours) +
             scale_size_continuous("") +
             xlab("Ratio (NEG2)") + ylab("Span (NEG2)") +
             plot_theme
           output$plot <- renderPlotly({
-            contamination_plot
+            ggplotly(contamination_plot, tooltip = "text")
           })          
         }
       }
@@ -720,24 +737,23 @@ server <- function(input, output, session) {
         if(is.na(x)) {return(NA)} else {return(sum(colSums(x)))}
       }
       data_to_plot <- data.frame(
-        step = c("0 - original", "1 - without controls", "2 - sample filter",
+        Step = c("0 - original", "1 - without controls", "2 - sample filter",
                  "3 - feature abundance filter", "4 - feature frequency filter",
                  "5 - contamination filter"),
-        reads = c(sum_of_reads_function(reactives$featuredata),
+        Reads = c(sum_of_reads_function(reactives$featuredata),
                   sum_of_reads_function(reactives$featuredata_1),
                   sum_of_reads_function(reactives$featuredata_2),
                   sum_of_reads_function(reactives$featuredata_3),
                   sum_of_reads_function(reactives$featuredata_4),
                   sum_of_reads_function(reactives$featuredata_5)))
       reduction_of_reads <- 
-        ggplot(data = data_to_plot, aes(x = step, y = reads, fill = step)) +
-        geom_bar(aes(text = paste("step:", step,
-                                  "\nreads:", reads)), stat = "identity") +
+        ggplot(data = data_to_plot, aes(x = Step, y = Reads, fill = Step)) +
+        geom_bar(aes(text = paste("step:", Step,
+                                  "\nreads:", Reads)), stat = "identity") +
         scale_fill_manual(values = c("#E3F0F7", "#C4E3F4", "#A4D6F2", "#85C8EF",
                                      "#65BBEC", "#2FA4E7")) +
         scale_x_discrete(labels = c("0", "1", "2", "3", "4", "5")) +
         plot_theme
-      
       output$plot <- renderPlotly({
         ggplotly(reduction_of_reads, tooltip = "text")
       }) 
@@ -1194,7 +1210,6 @@ server <- function(input, output, session) {
       as.data.frame()
     # Check that the chosen number of taxa is available
     if(input$top_number_taxa > nrow(taxonomy_result)) {
-      top_number_taxa <- nrow(taxonomy_result)
       updateNumericInput(session, inputId = "top_number_taxa", 
                          value = nrow(taxonomy_result))
       showModal(modalDialog(
@@ -1202,10 +1217,7 @@ server <- function(input, output, session) {
         paste0("There are only ", nrow(taxonomy_result), " different taxa at ", 
                reactives$taxonomy_level, " level. The top number of taxa 
                displayed is set to ", nrow(taxonomy_result), ".")))
-    } else {
-      top_number_taxa <- input$top_number_taxa
     }
-    # Attach meta variable of interest
     rownames(taxonomy_result) <- taxonomy_result[[reactives$taxonomy_level]]
     taxonomy_result[[reactives$taxonomy_level]] <- NULL
     taxonomy_result <- as.data.frame(t(taxonomy_result))
@@ -1222,30 +1234,30 @@ server <- function(input, output, session) {
       as.data.frame()
     # Select top taxa per group or overall
     if(input$per_group_overall == "Overall") {
-      Top_taxa <- taxonomy_result %>%
+      top_taxa <- taxonomy_result %>%
         select_if(is.numeric) %>%
         colMeans() %>% 
         sort(decreasing = TRUE)
-      Top_taxa <- names(Top_taxa[1:top_number_taxa])
+      top_taxa <- names(top_taxa[1:input$top_number_taxa])
     } else if (input$per_group_overall == "Per group") {
-      Top_taxa <- taxonomy_result %>%
+      top_taxa <- taxonomy_result %>%
         group_by(.data[[reactives$metavar_taxonomy]]) %>%
         select_if(is.numeric) %>%
-        group_map(~ names(sort(.x, decreasing = TRUE)[1:top_number_taxa]))
-      Top_taxa <- unique(unlist(Top_taxa))
+        group_map(~ names(sort(.x, decreasing = TRUE)[1:input$top_number_taxa]))
+      top_taxa <- unique(unlist(top_taxa))
     }
     # Summarise other taxa into "Others"
-    Top_taxa <- sort(Top_taxa)
-    Taxonomy_others <- taxonomy_result %>% 
+    top_taxa <- sort(top_taxa)
+    taxonomy_others <- taxonomy_result %>% 
       select_if(is.numeric) %>%
-      select(-all_of(Top_taxa)) %>%
+      select(-all_of(top_taxa)) %>%
       rowSums() %>% 
       data.frame
-    colnames(Taxonomy_others) <- "Others"
+    colnames(taxonomy_others) <- "Others"
     # Prevent showing an empty "Others" category in the plot
-    if(colSums(Taxonomy_others) != 0) {
-      taxonomy_result <- merge(Taxonomy_others,
-                             taxonomy_result[, c(Top_taxa, reactives$metavar_taxonomy)],
+    if(colSums(taxonomy_others) != 0) {
+      taxonomy_result <- merge(taxonomy_others,
+                             taxonomy_result[, c(top_taxa, reactives$metavar_taxonomy)],
                              by = 0, all = TRUE)
     } else { # Prevent a bug in melt() when "Others" don't exist
       taxonomy_result["Row.names"] <- rownames(taxonomy_result)
@@ -1266,7 +1278,7 @@ server <- function(input, output, session) {
       ylab("Relative Abundance") +
       scale_y_continuous(expand = c(0, 0)) +
       xlab(reactives$metavar_taxonomy)
-    if(colSums(Taxonomy_others) != 0) {
+    if(colSums(taxonomy_others) != 0) {
       taxonomy_plot <- taxonomy_plot +
         scale_fill_manual("Taxonomy", values = c("#d1d1d1", theme_colours))
     } else {
@@ -1339,7 +1351,7 @@ server <- function(input, output, session) {
       write.table(
         data.frame(Sample_ID = rownames(reactives$alpha_diversity_download),
                    reactives$alpha_diversity_download), 
-        file = paste0(reactives$output_dir, "/output/", file_name), 
+        file = paste0(reactives$output_dir, "/3_analysis-output/", file_name), 
         sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
       showModal(modalDialog(
         title = "Info", paste0("File saved as '", file_name,
@@ -1364,7 +1376,7 @@ server <- function(input, output, session) {
       write.table(
         data.frame(Sample_ID = rownames(reactives$beta_diversity_download),
                    reactives$beta_diversity_download), 
-        file = paste0(reactives$output_dir, "/output/", file_name), 
+        file = paste0(reactives$output_dir, "/3_analysis-output/", file_name), 
         sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
       showModal(modalDialog(
         title = "Info", paste0("File saved as '", file_name,
@@ -1388,7 +1400,7 @@ server <- function(input, output, session) {
         "_", format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
       write.table(
         select(reactives$taxonomy_download, -Row.names), 
-        file = paste0(reactives$output_dir, "/output/", file_name), 
+        file = paste0(reactives$output_dir, "/3_analysis-output/", file_name), 
         sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
       showModal(modalDialog(
         title = "Info", paste0("File saved as '", file_name,
