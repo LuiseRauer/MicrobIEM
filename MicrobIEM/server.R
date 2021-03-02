@@ -5,10 +5,32 @@
 ################################################################################
 
 # ------------------------------------------------------------------------------
+# Install and load required packages 
+# ------------------------------------------------------------------------------
+# Install packages
+packages_server <- c("shinyjs", "DT", "plotly", "shinyWidgets",
+                     "dplyr", "reshape2", "ggplot2", "vegan")
+install.packages(setdiff(packages_server, rownames(installed.packages())))
+# Load packages
+library(shinyjs)
+library(ggplot2)
+library(vegan)
+library(dplyr)
+library(shinyWidgets)
+library(reshape2)
+library(plotly)
+library(DT)
+
+# ------------------------------------------------------------------------------
 # Define re-used parameters
 # ------------------------------------------------------------------------------
-
 sample_types_allowed <- c("SAMPLE", "POS1", "POS2", "NEG1", "NEG2")
+neg_ratio_steps <- c("ignore" = Inf, 
+                     "2" = 2,
+                     "1.5" = 1.5,
+                     "1" = 1,
+                     "0.5" = 0.5,
+                     "0.1" = 0.1)
 plot_theme <- theme(
   strip.background = element_rect(fill = "#f5f5f5", colour = "grey50"),
   panel.background = element_rect(fill = NA, colour = "grey50"),
@@ -34,9 +56,7 @@ contamination_neg2_colours <- c("kept" = "#2fa4e7", # blue
 # ------------------------------------------------------------------------------
 # Server logic main function
 # ------------------------------------------------------------------------------
-
 server <- function(input, output, session) {
-
   # Define reactive values (count steps etc.)
   reactives <- reactiveValues(step_var = 1, output_dir = NA,
                               metadata = NA, featuredata = NA,
