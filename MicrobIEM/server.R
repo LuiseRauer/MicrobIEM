@@ -1287,15 +1287,15 @@ server <- function(input, output, session) {
     # Plot the result
     taxonomy_result <- melt(
       taxonomy_result, id.vars = c("Row.names", reactives$metavar_taxonomy), 
-      value.name = "Relative Abundance") # Space needed to avoid a plotly bug
+      value.name = "Relative abundance") # Space needed to avoid a plotly bug
     colnames(taxonomy_result)[colnames(taxonomy_result) == "variable"] <- "Taxonomy"
     taxonomy_plot <- ggplot(data = taxonomy_result, 
                             aes(x = !!sym(reactives$metavar_taxonomy), 
-                                y = !!sym("Relative Abundance"),  
+                                y = !!sym("Relative abundance"),  
                                 fill = Taxonomy)) +
       geom_bar(position = "fill", stat = "identity") + 
       plot_theme +
-      ylab("Relative Abundance") +
+      ylab("Relative abundance") +
       scale_y_continuous(expand = c(0, 0)) +
       xlab(reactives$metavar_taxonomy)
     if(colSums(taxonomy_others) != 0) {
@@ -1363,11 +1363,11 @@ server <- function(input, output, session) {
     } else {
       file_name <- paste0(
         "Alpha-diversity_",
-        gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_alpha), # Variable name
+        gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_alpha), "_", # Variable name
         if(reactives$subvar_alpha != "ignore") {
           paste0(gsub("[^0-9a-zA-Z_-]", "", reactives$subvar_alpha), "_")
         },
-        "_", format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+        format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
       write.table(
         data.frame(Sample_ID = rownames(reactives$alpha_diversity_download),
                    reactives$alpha_diversity_download), 
@@ -1391,8 +1391,8 @@ server <- function(input, output, session) {
       file_name <- paste0(
         "Beta-diversity_",
         substr(reactives$plot_beta, 6, 9), "_", # nMDS or PCoA
-        gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_beta), # Variable name
-        "_", format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+        gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_beta), "_", # Variable name
+        format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
       write.table(
         data.frame(Sample_ID = rownames(reactives$beta_diversity_download),
                    reactives$beta_diversity_download), 
@@ -1416,8 +1416,8 @@ server <- function(input, output, session) {
       file_name <- paste0(
         "Taxonomy_",
         reactives$taxonomy_level, "_", # Taxonomic level
-        gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_taxonomy), # Variable name
-        "_", format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+        gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_taxonomy), "_", # Variable name
+        format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
       write.table(
         select(reactives$taxonomy_download, -Row.names), 
         file = paste0(reactives$output_dir, "/3_analysis-output/", file_name), 
