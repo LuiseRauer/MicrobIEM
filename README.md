@@ -21,18 +21,23 @@ MicrobIEM is a user-friendly tool for quality control and interactive analysis o
 #### Download R
 Download and install the software package R from the [R project website](https://cran.r-project.org/bin/windows/base/).
 
+#### Download RStudio
+Download and install RStudio, an integrated development environment (IDE) for R, from the [RStudio website](https://rstudio.com/products/rstudio/download/).
+
+#### Install Shiny
+Once R and RStudio are properly installed, open RStudio and type or copy the following command in the console:
+``` r
+install.packages("shiny")
+```
+Pressing enter starts the installation.
+
 #### Download MicrobIEM
-Download MicrobIEM and save the folder on your machine. Unzip the folder and copy its directory.  
+Download MicrobIEM and save and unzip the folder on your machine. 
 
 ## 3. Start the tool
-Open R and paste the following code chunk:
-``` r
-setwd("C:/user/.../MicrobIEM") # Change to the directory of your MicrobIEM folder
-source("start_MicrobIEM.R")
-start_MicrobIEM()
-```
-The last item in the directory (first line) should be the unzipped MicrobIEM folder.  
+In your unzipped MicrobIEM folder, open the file 'server' by doubleclicking - it should automatically open in RStudio. Press the 'Run App' button in the upper middle to start MicrobIEM.  
 When you start MicrobIEM for the first time, this step may take some minutes because additional packages may need to be installed.
+<img src="MicrobIEM/man/09_Start-MicrobIEM.png"/> 
 
 ## 4. Prepare your data
 MicrobIEM requires the input data - a feature file and a meta file - to be in a specific format.
@@ -40,7 +45,6 @@ MicrobIEM requires the input data - a feature file and a meta file - to be in a 
 #### Featurefile
 The feature file can be an OTU table or an ASV table, and contains sequenced read counts for each sample. It should be .txt or .csv file. The first column must be called "OTU_ID" and must contain unique names of features. The next columns start with the name of each sample. The last column must be called "Taxonomy" and contain information on taxonomic classification.
 <img src="MicrobIEM/man/02_Featurefile.png"/> 
-
 
 #### Metafile
 The metafile contains additional information on each sample. It should be .txt or .csv file. The first column must be called "Sample_ID" and contains the same sample names that are found in the featurefile. One column in the metafile must be called "Sample_type" and contain the classification of samples into real samples and positive and negative controls. Please use the following terms to define samples and controls:
