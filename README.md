@@ -19,7 +19,7 @@ MicrobIEM is a user-friendly tool for quality control and interactive analysis o
 
 ## 2. Prerequisites
 #### Download R
-Download and install the software package R from the [R project website](https://cran.r-project.org/bin/windows/base/).
+Download and install the software package R from the [R project website](https://cran.r-project.org/bin/windows/base/). If you already used R on your machine, please update it to at least version 4.0.
 
 #### Download RStudio
 Download and install RStudio, an integrated development environment (IDE) for R, from the [RStudio website](https://rstudio.com/products/rstudio/download/).

@@ -75,7 +75,8 @@ server <- function(input, output, session) {
                               req_ratio_neg2_old = Inf, req_span_neg2_old = 0.0001,
                               neg1_span_steps = NA, req_span_neg1 = NA,
                               neg2_span_steps = NA, req_span_neg2 = NA,
-                              analysis_started = FALSE)
+                              analysis_started = FALSE,
+                              beta_diversity_analysis = FALSE)
   
   # Hide buttons and input fields defined in UI function
   shinyjs::hide("visualization_type")
@@ -625,7 +626,7 @@ server <- function(input, output, session) {
                nrow(reactives$featuredata_6), 
                " features remaining for analysis.", 
                "<br><br> A new output directory '", reactives$output_dir, 
-               "' has been created in your working directory. 
+               "' has been created in your MicrobIEM folder. 
                The following files have been saved: 
                <br>&#8226 Filtered metafile and featurefile,
                <br>&#8226 Filter settings and quality control files,
@@ -683,8 +684,10 @@ server <- function(input, output, session) {
     if(input$visualization_type == "Contamination removal - NEG1" ||
        input$visualization_type == "Contamination removal - NEG2") {
       if(reactives$step_var < 5) {
-        showModal(modalDialog(title = "Warning 1", "Please wait for contaminant
-                              removal analysis."))
+        showModal(modalDialog(title = "Warning 1", paste0(
+        "The plot for contamination removal is only available at step 5. You are 
+        currently at step ", reactives$step_var, ". Please dismiss this message 
+        and proceed with your analysis by clicking the Next-button.")))
         updateSelectInput(session, inputId = "visualization_type",
                           selected = "Correlation of reads and features")
       } else {
@@ -1022,7 +1025,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$reanalysis_button, {
-    reactives$step_var <- reactives$step_var + 1
+    reactives$step_var <- 6
     updateTabsetPanel(session, "tabset", selected = "Alpha diversity") 
     removeModal()
   })
@@ -1059,7 +1062,19 @@ server <- function(input, output, session) {
     # Generate format for download
     reactives$alpha_diversity_download <- alpha_diversity_result
     # Calculate pvalue table for alpha diversity
-    if(reactives$subvar_alpha != "ignore") {
+    if(reactives$subvar_alpha == "ignore" ||
+       (reactives$subvar_alpha != "ignore" && 
+        length(unique(Metadata[paste0(reactives$subvar_alpha)])) == 1)) {
+      alpha_diversity_table <- as.data.frame(
+        sapply(colnames(reactives$alpha_diversity_data), function(y) 
+          if(length(unique(alpha_diversity_result$Group)) == 1) {
+            1 # print 1 if there is only one category in "Group"
+          } else {
+            kruskal.test(formula(paste(y, "~ Group")),
+                         data = alpha_diversity_result)$p.value}))
+      colnames(alpha_diversity_table) <- "Group"
+      alpha_diversity_table <- as.data.frame(t(alpha_diversity_table))
+    } else {
       alpha_diversity_table <- as.data.frame(
         sapply(colnames(reactives$alpha_diversity_data), function(y) 
           sapply(unique(alpha_diversity_result$Subgroup), function(x)
@@ -1070,16 +1085,6 @@ server <- function(input, output, session) {
               kruskal.test(formula(paste(y, "~ Group")), 
                            data = subset(alpha_diversity_result, 
                                          Subgroup == x))$p.value})))
-    } else {
-      alpha_diversity_table <- as.data.frame(
-        sapply(colnames(reactives$alpha_diversity_data), function(y) 
-          if(length(unique(alpha_diversity_result$Group)) == 1) {
-            1 # print 1 if there is only one category in "Group"
-          } else {
-            kruskal.test(formula(paste(y, "~ Group")),
-                         data = alpha_diversity_result)$p.value}))
-      colnames(alpha_diversity_table) <- "Group"
-      alpha_diversity_table <- as.data.frame(t(alpha_diversity_table))
     }
     # Round pvalues of the table
     alpha_diversity_table <- signif(alpha_diversity_table, 2)
@@ -1143,7 +1148,10 @@ server <- function(input, output, session) {
     reactives$metavar_beta <- input$metavar_beta
     reactives$plot_beta <- input$plot_beta
     # Filter feature and metadata according to sample selection
+    # Add a variable to check that at least two samples are selected
+    reactives$beta_diversity_analysis <- TRUE
     samples_deselected <- Sample_selection_check()
+    reactives$beta_diversity_analysis <- FALSE
     Metadata <- 
       reactives$metadata_6[!rownames(reactives$metadata_6) %in% 
                                    samples_deselected, ]
@@ -1217,7 +1225,7 @@ server <- function(input, output, session) {
                                    samples_deselected, ]
     Featuredata <- 
       reactives$featuredata_6[, !colnames(reactives$featuredata_6) %in%
-                                      samples_deselected]
+                                      samples_deselected, drop = FALSE]
     Featuredata_freq <- t(decostand(t(Featuredata), method = "total"))
     # Merge taxonomic level and featuredata
     taxonomy_result <- 
@@ -1232,11 +1240,14 @@ server <- function(input, output, session) {
     if(input$top_number_taxa > nrow(taxonomy_result)) {
       updateNumericInput(session, inputId = "top_number_taxa", 
                          value = nrow(taxonomy_result))
+      reactives$top_number_taxa <- nrow(taxonomy_result)
       showModal(modalDialog(
         title = "Warning 3", 
         paste0("There are only ", nrow(taxonomy_result), " different taxa at ", 
                reactives$taxonomy_level, " level. The top number of taxa 
                displayed is set to ", nrow(taxonomy_result), ".")))
+    } else {
+      reactives$top_number_taxa <- input$top_number_taxa
     }
     rownames(taxonomy_result) <- taxonomy_result[[reactives$taxonomy_level]]
     taxonomy_result[[reactives$taxonomy_level]] <- NULL
@@ -1258,12 +1269,12 @@ server <- function(input, output, session) {
         select_if(is.numeric) %>%
         colMeans() %>% 
         sort(decreasing = TRUE)
-      top_taxa <- names(top_taxa[1:input$top_number_taxa])
+      top_taxa <- names(top_taxa[1:reactives$top_number_taxa])
     } else if (input$per_group_overall == "Per group") {
       top_taxa <- taxonomy_result %>%
         group_by(.data[[reactives$metavar_taxonomy]]) %>%
         select_if(is.numeric) %>%
-        group_map(~ names(sort(.x, decreasing = TRUE)[1:input$top_number_taxa]))
+        group_map(~ names(sort(.x, decreasing = TRUE)[1:reactives$top_number_taxa]))
       top_taxa <- unique(unlist(top_taxa))
     }
     # Summarise other taxa into "Others"
@@ -1341,6 +1352,19 @@ server <- function(input, output, session) {
       showModal(modalDialog(
         title = "Warning 2", "It seems that you deselected all samples. Sample
         selection is set back, and all samples are selected for analysis."))
+      lapply(colnames(reactives$metadata_6), function(x) {
+        updatePickerInput(session, inputId = paste0("sampleselector_", x),
+                          selected = unique(reactives$metadata_6[, x]))
+      }) # Close lapply function
+      samples_deselected <- c()
+    }
+    # Check that the user does select more than 2 samples for beta diversity
+    if ((nrow(reactives$metadata_6)-length(samples_deselected)) <= 2 && 
+        reactives$beta_diversity_analysis == TRUE) {
+      showModal(modalDialog(
+        title = "Warning 5", "It seems that you selected two or less samples
+        for beta diversity analysis. Sample selection is set back, and all 
+        samples are selected for analysis."))
       lapply(colnames(reactives$metadata_6), function(x) {
         updatePickerInput(session, inputId = paste0("sampleselector_", x),
                           selected = unique(reactives$metadata_6[, x]))
