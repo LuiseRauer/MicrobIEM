@@ -243,10 +243,15 @@ server <- function(input, output, session) {
         apply(reactives$featuredata_taxonomy, 1, function(x)
           unlist(strsplit(x, split = ";|,")))
       # Iterate over vector items, apply the unique colname to them, rbind all
-      reactives$taxonomy_data <- data.frame(
-        do.call(rbind, lapply(reactives$taxonomy_data, "[", 
-                              unique(unlist(c(sapply(reactives$taxonomy_data, 
-                                                     names)))))))
+      # Reactives$taxonomy_data is stored as a list if missing entries exist
+      if(is.list(reactives$taxonomy_data)) { 
+        reactives$taxonomy_data <- data.frame(
+          do.call(rbind, lapply(reactives$taxonomy_data, "[", 
+                                unique(unlist(c(sapply(reactives$taxonomy_data, 
+                                                       names)))))))
+      } else { # Or as matrix if only complete taxonomies exits (e.g. "NoGenus")
+        reactives$taxonomy_data <- data.frame(t(reactives$taxonomy_data))
+      }
       # Prevent a bug when there is only one taxonomic level in some annotations
       if(any(colnames(reactives$taxonomy_data) == "Taxonomy") && 
          any(colnames(reactives$taxonomy_data) == "NA.")) {
