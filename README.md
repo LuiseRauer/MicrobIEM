@@ -34,13 +34,15 @@ Pressing enter starts the installation.
 #### Download MicrobIEM
 Download MicrobIEM and save and unzip the folder on your machine. 
 
+You can download MicrobIEM by clicking the green "Code" button in the top right of this repository and select "Download ZIP".  
+
 ## 3. Start the tool
 In your unzipped MicrobIEM folder, open the file 'server' by doubleclicking - it should automatically open in RStudio. Press the 'Run App' button in the upper middle to start MicrobIEM.  
 When you start MicrobIEM for the first time, this step may take some minutes because additional packages may need to be installed.
 <img src="MicrobIEM/man/09_Start-MicrobIEM.png"/> 
 
 ## 4. Prepare your data
-MicrobIEM requires the input data - a feature file and a meta file - to be in a specific format.
+MicrobIEM requires the input data - a feature file and a meta file - to be in a specific format. You can see an example of the required formats in the folder /MicrobIEM-main/MicrobIEM/Test-Data.
 
 #### Featurefile
 The feature file can be an OTU table or an ASV table, and contains sequenced read counts for each sample. It should be .txt or .csv file. The first column must be called "OTU_ID" and must contain unique names of features. The next columns start with the name of each sample. The last column must be called "Taxonomy" and contain information on taxonomic classification.
