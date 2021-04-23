@@ -1,4 +1,9 @@
-# MicrobIEM - draft
+---
+title: "MicrobIEM"
+output:
+  html_document:
+    toc: true
+---
 
 ## 1. Overview
 
