@@ -1069,7 +1069,7 @@ server <- function(input, output, session) {
     # Calculate pvalue table for alpha diversity
     if(reactives$subvar_alpha == "ignore" ||
        (reactives$subvar_alpha != "ignore" && 
-        length(unique(Metadata[paste0(reactives$subvar_alpha)])) == 1)) {
+        nrow(unique(Metadata[paste0(reactives$subvar_alpha)])) == 1)) {
       alpha_diversity_table <- as.data.frame(
         sapply(colnames(reactives$alpha_diversity_data), function(y) 
           if(length(unique(alpha_diversity_result$Group)) == 1) {
