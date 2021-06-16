@@ -263,8 +263,8 @@ server <- function(input, output, session) {
         c("Domain", "Phylum", "Class", "Order", "Family", "Genus", 
           "Species")[1:length(colnames(reactives$taxonomy_data))]
       # Replace NA and empty values
-      reactives$taxonomy_data[is.na(reactives$taxonomy_data)] <- "no_Annotation"
-      reactives$taxonomy_data[reactives$taxonomy_data == ""] <- "no_Annotation"
+      reactives$taxonomy_data[is.na(reactives$taxonomy_data)] <- "No_annotation"
+      reactives$taxonomy_data[reactives$taxonomy_data == ""] <- "No_annotation"
       
       # ------------------------------------------------------------------------
       # Proceed one step and start the filtering 
@@ -443,7 +443,7 @@ server <- function(input, output, session) {
               "removed (NEG2)", "kept"))))
       # Attach last taxonomy
       reactives$filter_basis["Taxonomy"] <- 
-        apply(reactives$taxonomy_data, 1, function(x) tail(x[x != "no_Annotation"], 1))
+        apply(reactives$taxonomy_data, 1, function(x) tail(x[x != "No_annotation"], 1))
       # Filter featuredata and metadata
       reactives$featuredata_5 <- 
         reactives$featuredata_4[!rownames(reactives$featuredata_4) %in% unique(
@@ -667,7 +667,7 @@ server <- function(input, output, session) {
       data_to_plot <- 
         merge(data_to_plot, 
               data.frame(Taxonomy = apply(reactives$taxonomy_data, 1, function(x) 
-                tail(x[x != "no_Annotation"], 1))),
+                tail(x[x != "No_annotation"], 1))),
               by.x = "Row.names", by.y = 0, all.x = TRUE)
       abundance_plot <- 
         ggplot(data = data_to_plot, aes(x = reads_before, y = reads_now, 
