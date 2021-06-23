@@ -635,7 +635,9 @@ server <- function(input, output, session) {
                The following files have been saved: 
                <br>&#8226 Filtered metafile and featurefile,
                <br>&#8226 Filter settings and quality control files,
-               <br>&#8226 Raw values for alpha and beta diversity analysis.")),
+               <br>&#8226 Raw values for alpha and beta diversity analysis.
+               <br><br> Please do not change the name and structure of this 
+               folder and its files while running MicrobIEM.")),
         footer = tagList(modalButton("Ok"))
       ))
     }
