@@ -507,7 +507,7 @@ server <- function(input, output, session) {
       # ------------------------------------------------------------------------
       if (is.na(reactives$output_dir)) {
         reactives$output_dir <- gsub(":", "_", format(Sys.time(), 
-                                                      "%Y_%m_%d_%a_%X"))
+                                                      "%Y_%m_%d_%a_%H_%M_%S"))
         if (!dir.exists(reactives$output_dir)){
           dir.create(paste0(reactives$output_dir, "/1_final-data-output"), recursive = TRUE)
           dir.create(paste0(reactives$output_dir, "/2_quality-control"), recursive = TRUE)
