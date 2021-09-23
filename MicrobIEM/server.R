@@ -263,8 +263,8 @@ server <- function(input, output, session) {
         c("Domain", "Phylum", "Class", "Order", "Family", "Genus", 
           "Species")[1:length(colnames(reactives$taxonomy_data))]
       # Replace NA and empty values
-      reactives$taxonomy_data[is.na(reactives$taxonomy_data)] <- "no_Annotation"
-      reactives$taxonomy_data[reactives$taxonomy_data == ""] <- "no_Annotation"
+      reactives$taxonomy_data[is.na(reactives$taxonomy_data)] <- "No_annotation"
+      reactives$taxonomy_data[reactives$taxonomy_data == ""] <- "No_annotation"
       
       # ------------------------------------------------------------------------
       # Proceed one step and start the filtering 
@@ -443,7 +443,7 @@ server <- function(input, output, session) {
               "removed (NEG2)", "kept"))))
       # Attach last taxonomy
       reactives$filter_basis["Taxonomy"] <- 
-        apply(reactives$taxonomy_data, 1, function(x) tail(x[x != "no_Annotation"], 1))
+        apply(reactives$taxonomy_data, 1, function(x) tail(x[x != "No_annotation"], 1))
       # Filter featuredata and metadata
       reactives$featuredata_5 <- 
         reactives$featuredata_4[!rownames(reactives$featuredata_4) %in% unique(
@@ -507,7 +507,7 @@ server <- function(input, output, session) {
       # ------------------------------------------------------------------------
       if (is.na(reactives$output_dir)) {
         reactives$output_dir <- gsub(":", "_", format(Sys.time(), 
-                                                      "%Y_%m_%d_%a_%X"))
+                                                      "%Y_%m_%d_%a_%H_%M_%S"))
         if (!dir.exists(reactives$output_dir)){
           dir.create(paste0(reactives$output_dir, "/1_final-data-output"), recursive = TRUE)
           dir.create(paste0(reactives$output_dir, "/2_quality-control"), recursive = TRUE)
@@ -635,7 +635,9 @@ server <- function(input, output, session) {
                The following files have been saved: 
                <br>&#8226 Filtered metafile and featurefile,
                <br>&#8226 Filter settings and quality control files,
-               <br>&#8226 Raw values for alpha and beta diversity analysis.")),
+               <br>&#8226 Raw values for alpha and beta diversity analysis.
+               <br><br> Please do not change the name and structure of this 
+               folder and its files while running MicrobIEM.")),
         footer = tagList(modalButton("Ok"))
       ))
     }
@@ -667,7 +669,7 @@ server <- function(input, output, session) {
       data_to_plot <- 
         merge(data_to_plot, 
               data.frame(Taxonomy = apply(reactives$taxonomy_data, 1, function(x) 
-                tail(x[x != "no_Annotation"], 1))),
+                tail(x[x != "No_annotation"], 1))),
               by.x = "Row.names", by.y = 0, all.x = TRUE)
       abundance_plot <- 
         ggplot(data = data_to_plot, aes(x = reads_before, y = reads_now, 
@@ -1069,7 +1071,7 @@ server <- function(input, output, session) {
     # Calculate pvalue table for alpha diversity
     if(reactives$subvar_alpha == "ignore" ||
        (reactives$subvar_alpha != "ignore" && 
-        length(unique(Metadata[paste0(reactives$subvar_alpha)])) == 1)) {
+        nrow(unique(Metadata[paste0(reactives$subvar_alpha)])) == 1)) {
       alpha_diversity_table <- as.data.frame(
         sapply(colnames(reactives$alpha_diversity_data), function(y) 
           if(length(unique(alpha_diversity_result$Group)) == 1) {

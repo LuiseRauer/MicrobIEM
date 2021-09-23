@@ -25,8 +25,8 @@ neg_ratio_steps <- c("ignore" = Inf,
                       "1" = 1,
                       "0.5" = 0.5,
                       "0.1" = 0.1)
-#	Allow upload of files with max. size of 50 Mb
-options(shiny.maxRequestSize = 50*1024^2)
+#	Allow upload of files with max. size of 1000 Mb
+options(shiny.maxRequestSize = 1000*1024^2)
 
 # ------------------------------------------------------------------------------
 # UI main function
