@@ -97,9 +97,9 @@ server <- function(input, output, session) {
   observeEvent(input$metafile, {
     print(paste0("INFO - input in metafile - ", Sys.time()))
     # Check correct file extension
-    if (!(tools::file_ext(input$metafile$datapath) %in% c("csv", "txt"))) {
+    if (!(tools::file_ext(input$metafile$datapath) == "txt")) {
       showModal(modalDialog(
-        title = "Error 1a", "Please choose a csv or txt file as meta table."))
+        title = "Error 1a", "Please choose a tab-separated txt file as meta table."))
     } else {
       reactives$metadata <- read.csv(input$metafile$datapath, sep = "\t", 
                                      header = TRUE, check.names = FALSE)
@@ -137,9 +137,9 @@ server <- function(input, output, session) {
   observeEvent(input$featurefile, {
     print(paste0("INFO - input in featurefile - ", Sys.time()))
     # Check correct file extension
-    if (!(tools::file_ext(input$featurefile$datapath) %in% c("csv", "txt"))) {
+    if (!(tools::file_ext(input$featurefile$datapath) == "txt")) {
       showModal(modalDialog(
-        title = "Error 1b", "Please choose a csv or txt file as feature table."))
+        title = "Error 1b", "Please choose a tab-separated txt file as feature table."))
     } else {
       reactives$featuredata <- read.csv(input$featurefile$datapath, sep = "\t", 
                                         header = TRUE, check.names = FALSE)
@@ -630,16 +630,21 @@ server <- function(input, output, session) {
                sum(rowSums(reactives$featuredata_6)), " reads in ", 
                nrow(reactives$featuredata_6), 
                " features remaining for analysis.", 
-               "<br><br> A new output directory '", reactives$output_dir, 
+               "<br><br> If you are using MicrobIEM through RStudio, 
+               a new output directory '", reactives$output_dir, 
                "' has been created in your MicrobIEM folder. 
                The following files have been saved: 
                <br>&#8226 Filtered metafile and featurefile,
                <br>&#8226 Filter settings and quality control files,
                <br>&#8226 Raw values for alpha and beta diversity analysis.
                <br><br> Please do not change the name and structure of this 
-               folder and its files while running MicrobIEM.")),
+               folder and its files while running MicrobIEM.
+               <br><br> If you using MicrobIEM through a web browser,
+               please download the data manually in the 'Download' tab.")),
         footer = tagList(modalButton("Ok"))
       ))
+      # Save zip files
+      reactives$zipfiles <- c("Reduction_per_taxonomy", "Reduction_per_feature")
     }
     
     # --------------------------------------------------------------------------
@@ -984,11 +989,13 @@ server <- function(input, output, session) {
           tabPanel(
             title = "Download",
             br(),
-            actionButton(inputId = "download_alpha",
+            downloadButton("downloadZIP", "Download as ZIP"), # new
+            downloadButton(outputId = "download_alpha",
                          label = "Current alpha diversity values"),
-            actionButton(inputId = "download_beta",
+            downloadButton(
+              outputId = "download_beta",
                          label = "Current beta diversity values"),
-            actionButton(inputId = "download_taxonomy",
+            downloadButton(outputId = "download_taxonomy",
                          label = "Current taxonomy values")
           )
         )
@@ -1385,9 +1392,18 @@ server <- function(input, output, session) {
   }
   
   # ----------------------------------------------------------------------------
+  # Data download - all other data
+  # ----------------------------------------------------------------------------
+  output$downloadZIP <- downloadHandler(
+    filename = "MicrobIEM_Filtered_feature_and_metafile",
+    content = function(file)
+    contentType = "application/zip"
+  )
+  
+  # ----------------------------------------------------------------------------
   # Data download - alpha diversity
   # ----------------------------------------------------------------------------
-  observeEvent(input$download_alpha, {
+  output$download_alpha <- downloadHandler({
     if(is.null(reactives$alpha_diversity_download)) {
       showModal(modalDialog(
         title = "Error 6a", "Please do an alpha diversity analysis first."))

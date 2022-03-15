@@ -34,6 +34,13 @@ options(shiny.maxRequestSize = 1000*1024^2)
 ui <- fluidPage(
   # Application title
   titlePanel("MicrobIEM"),
+  tags$div("Need help? Check out the ", 
+           a("documentation", target = "_blank", 
+             href = "https://github.com/LuiseRauer/MicrobIEM"), 
+           " and the ", 
+           a("example dataset", target = "_blank", 
+             href = "https://github.com/LuiseRauer/MicrobIEM/tree/main/MicrobIEM/test-data"), 
+           "on Github."), 
   useShinyjs(), # Use shinyjs package 
   
   # Creating a sidebar
