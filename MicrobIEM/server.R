@@ -990,13 +990,15 @@ server <- function(input, output, session) {
             title = "Download",
             br(),
             downloadButton("downloadZIP", "Download as ZIP"), # new
+            h6(tags$b("Analysis-specific values will be available for download 
+                      once the respective analysis was performed."), 
+               id = "analysis_first"),
             downloadButton(outputId = "download_alpha",
-                         label = "Current alpha diversity values"),
-            downloadButton(
-              outputId = "download_beta",
-                         label = "Current beta diversity values"),
+                                label = "Current alpha diversity values"),
+            downloadButton(outputId = "download_beta",
+                                label = "Current beta diversity values"),
             downloadButton(outputId = "download_taxonomy",
-                         label = "Current taxonomy values")
+                                label = "Current taxonomy values")
           )
         )
       }
@@ -1005,7 +1007,8 @@ server <- function(input, output, session) {
   }
   
   # ----------------------------------------------------------------------------
-  # Prevent the user from messing up the files between filtering and analysis
+  # Prevent the user from messing up the files between filtering and analysis,
+  #   show download buttons only for available current analysis values
   # ----------------------------------------------------------------------------
   observeEvent(input$tabset, {
     if(reactives$step_var == 6 && input$tabset == "Filtering") {
@@ -1029,6 +1032,20 @@ server <- function(input, output, session) {
         )
       ))
       updateTabsetPanel(session, "tabset", selected = "Filtering")
+    }
+    if(is.null(reactives$alpha_diversity_download)) {
+      shinyjs::hide("download_alpha")
+    } else {shinyjs::show("download_alpha")}
+    if(is.null(reactives$beta_diversity_download)) {
+      shinyjs::hide("download_beta")
+    } else {shinyjs::show("download_beta")}
+    if(is.null(reactives$taxonomy_download)) {
+      shinyjs::hide("download_taxonomy")
+    } else {shinyjs::show("download_taxonomy")}
+    if(!is.null(reactives$alpha_diversity_download) && 
+       !is.null(reactives$beta_diversity_download) &&
+       !is.null(reactives$taxonomy_download)) {
+      shinyjs::hide("analysis_first")
     }
   })
   
@@ -1403,76 +1420,58 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   # Data download - alpha diversity
   # ----------------------------------------------------------------------------
-  output$download_alpha <- downloadHandler({
-    if(is.null(reactives$alpha_diversity_download)) {
-      showModal(modalDialog(
-        title = "Error 6a", "Please do an alpha diversity analysis first."))
-    } else {
-      file_name <- paste0(
+  output$download_alpha <- downloadHandler(
+    filename = function() {
+      paste0(
         "Alpha-diversity_",
         gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_alpha), "_", # Variable name
         if(reactives$subvar_alpha != "ignore") {
           paste0(gsub("[^0-9a-zA-Z_-]", "", reactives$subvar_alpha), "_")
         },
         format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+    }, 
+    content = function(file) {
       write.table(
         data.frame(Sample_ID = rownames(reactives$alpha_diversity_download),
                    reactives$alpha_diversity_download), 
-        file = paste0(reactives$output_dir, "/3_analysis-output/", file_name), 
-        sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
-      showModal(modalDialog(
-        title = "Info", paste0("File saved as '", file_name,
-                               "' in your output folder."),
-        footer = tagList(modalButton("Ok"))))
+        file = file, sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
     }
-  })
+  )
 
   # ----------------------------------------------------------------------------
   # Data download - beta diversity
   # ----------------------------------------------------------------------------
-  observeEvent(input$download_beta, {
-    if(is.null(reactives$beta_diversity_download)) {
-      showModal(modalDialog(
-        title = "Error 6b", "Please do a beta diversity analysis first."))
-    } else {
-      file_name <- paste0(
+  output$download_beta <- downloadHandler(
+    filename = function() {
+      paste0(
         "Beta-diversity_",
         substr(reactives$plot_beta, 6, 9), "_", # nMDS or PCoA
         gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_beta), "_", # Variable name
         format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+    },
+    content = function(file) {
       write.table(
         data.frame(Sample_ID = rownames(reactives$beta_diversity_download),
                    reactives$beta_diversity_download), 
-        file = paste0(reactives$output_dir, "/3_analysis-output/", file_name), 
-        sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
-      showModal(modalDialog(
-        title = "Info", paste0("File saved as '", file_name,
-                               "' in your output folder."),
-        footer = tagList(modalButton("Ok"))))
+        file = file, sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
     }
-  })
+  )
 
   # ----------------------------------------------------------------------------
   # Data download - taxonomy
   # ----------------------------------------------------------------------------
-  observeEvent(input$download_taxonomy, {
-    if(is.null(reactives$taxonomy_download)) {
-      showModal(modalDialog(
-        title = "Error 6c", "Please do a taxonomy analysis first."))
-    } else {
-      file_name <- paste0(
+  output$download_taxonomy <- downloadHandler(
+    filename = function() {
+      paste0(
         "Taxonomy_",
         reactives$taxonomy_level, "_", # Taxonomic level
         gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_taxonomy), "_", # Variable name
         format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+    },
+    content = function(file) {
       write.table(
         select(reactives$taxonomy_download, -Row.names), 
-        file = paste0(reactives$output_dir, "/3_analysis-output/", file_name), 
-        sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
-      showModal(modalDialog(
-        title = "Info", paste0("File saved as '", file_name,
-                               "' in your output folder."),
-        footer = tagList(modalButton("Ok"))))
+        file = file, sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
     }
-  })
+  )
 }
