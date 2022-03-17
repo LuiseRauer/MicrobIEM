@@ -463,16 +463,84 @@ server <- function(input, output, session) {
     }
     
     # --------------------------------------------------------------------------
-    # Step 6: Precalculate values for analysis and save final files
+    # Step 6: Precalculate values for analysis and create files for download
     # --------------------------------------------------------------------------
     if(reactives$step_var == 6) {
-      print(paste0("INFO - filtering step 6 - save final feature and metadata - ", 
+      print(paste0("INFO - filtering step 6 - create final files for analysis - ", 
                    Sys.time()))
       reactives$featuredata_6 <- reactives$featuredata_current
       reactives$metadata_6 <- reactives$metadata_current
+      print(paste0("INFO - create final files for download - ", Sys.time()))
       
       # ------------------------------------------------------------------------
-      # Pre-calculate values for alpha diversity analysis
+      # Create final feature files
+      # ------------------------------------------------------------------------
+      # Create final featuretable with absolute counts
+      reactives$download_featuredata_abs <- merge(
+        reactives$featuredata_6, reactives$featuredata_taxonomy, 
+        by = 0, all.x = TRUE)
+      colnames(reactives$download_featuredata_abs)[1] <- "OTU_ID"
+
+      # Create final featuretable with relative abundance
+      reactives$download_featuredata_rel <- 
+        t(decostand(t(reactives$featuredata_6), method = "total"))
+      reactives$download_featuredata_rel <- merge(
+        reactives$download_featuredata_rel, reactives$featuredata_taxonomy, 
+        by = 0, all.x = TRUE)
+      colnames(reactives$download_featuredata_rel)[1] <- "OTU_ID"
+
+      # ------------------------------------------------------------------------
+      # Create overview file for filter settings
+      # ------------------------------------------------------------------------
+      reactives$download_filtersettings <- paste0(c(
+        "MicrobIEM - quality control and analysis tool for microbiome data",
+        "-----------------------------------------------------------------",
+        "", "Input meta table:", input$metafile$name,
+        "", "Input feature table:", input$featurefile$name,
+        "", "Minimum reads per sample:", input$req_reads_per_sample,
+        "", "Minimum reads per feature:", input$req_reads_per_feature,
+        "", "Minimum relative frequency per feature:", input$req_ratio_per_feature,
+        "", "Frequency mean ratio (NEG1 by SAMPLE):", 
+        names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg1]),
+        "", "Span threshold (NEG1):", 
+        names(reactives$neg1_span_steps[reactives$neg1_span_steps == 
+                                          reactives$req_span_neg1]),
+        "", "Frequency mean ratio (NEG2 by SAMPLE):", 
+        names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg2]),
+        "", "Span threshold (NEG2):", 
+        names(reactives$neg2_span_steps[reactives$neg2_span_steps == 
+                                          reactives$req_span_neg2])), 
+        sep = " ")
+      
+      # ------------------------------------------------------------------------
+      # Create files for quality control
+      # ------------------------------------------------------------------------
+      # Create reduction of reads per feature by filter step
+      reactives$download_reduction_per_feature <- 
+        Reduce(function(x, y) merge(x = x, y = y, by.x = "Row.names", by.y = 0, 
+                                    all.x = TRUE), 
+               list(data.frame(Row.names = names(rowSums(reactives$featuredata)),
+                               Original = rowSums(reactives$featuredata)), 
+                    data.frame(Step1 = rowSums(reactives$featuredata_1)), 
+                    data.frame(Step2 = rowSums(reactives$featuredata_2)),
+                    data.frame(Step3 = rowSums(reactives$featuredata_3)),
+                    data.frame(Step4 = rowSums(reactives$featuredata_4)),
+                    data.frame(Step5 = rowSums(reactives$featuredata_5))))
+      colnames(reactives$download_reduction_per_feature)[1] <- "OTU_ID"
+      
+      # Create reduction of reads per highest taxonomy by filter step 
+      reactives$download_reduction_per_taxonomy <- 
+        merge(reactives$download_reduction_per_feature, 
+              reactives$featuredata_taxonomy,
+              by.x = "OTU_ID", by.y = 0, all = TRUE)
+      reactives$download_reduction_per_taxonomy <- 
+        reactives$download_reduction_per_taxonomy %>% 
+        group_by(Taxonomy) %>%
+        summarise_at(vars(Original, Step1, Step2, Step3, Step4, Step5),
+                     sum, na.rm = TRUE)
+      
+      # ------------------------------------------------------------------------
+      # Pre-calculate values for alpha and beta diversity analysis
       # ------------------------------------------------------------------------
       print(paste0("INFO - pre-calculate alpha diversity values - ", Sys.time()))
       # Define alpha diversity indices
@@ -502,124 +570,11 @@ server <- function(input, output, session) {
       rownames(reactives$alpha_diversity_data) <- 
         colnames(reactives$featuredata_6)
       
-      # ------------------------------------------------------------------------
-      # Create output directory
-      # ------------------------------------------------------------------------
-      if (is.na(reactives$output_dir)) {
-        reactives$output_dir <- gsub(":", "_", format(Sys.time(), 
-                                                      "%Y_%m_%d_%a_%H_%M_%S"))
-        if (!dir.exists(reactives$output_dir)){
-          dir.create(paste0(reactives$output_dir, "/1_final-data-output"), recursive = TRUE)
-          dir.create(paste0(reactives$output_dir, "/2_quality-control"), recursive = TRUE)
-          dir.create(paste0(reactives$output_dir, "/3_analysis-output"), recursive = TRUE)
-          print(paste0("INFO - output directory created - ", Sys.time()))
-        }
-      }
-      
-      # ------------------------------------------------------------------------
-      # Save final feature and metafile
-      # ------------------------------------------------------------------------
-      # Save final featuretable with absolute counts
-      featuredata_current <- merge(reactives$featuredata_6,
-                                   reactives$featuredata_taxonomy, 
-                                   by = 0, all.x = TRUE)
-      colnames(featuredata_current)[1] <- "OTU_ID"
-      write.table(
-        featuredata_current, 
-        file = paste0(reactives$output_dir, "/1_final-data-output/Featuretable_final.txt"),
-        row.names = FALSE, sep = "\t", quote = FALSE)
-      # Save final featuretable with relative abundance
-      featuredata_current_rel <- 
-        t(decostand(t(reactives$featuredata_6), method = "total"))
-      featuredata_current_rel <- merge(featuredata_current_rel,
-                                       reactives$featuredata_taxonomy, 
-                                       by = 0, all.x = TRUE)
-      colnames(featuredata_current_rel)[1] <- "OTU_ID"
-      write.table(
-        featuredata_current_rel, 
-        file = paste0(reactives$output_dir, "/1_final-data-output/Featuretable_final_frequency.txt"),
-        row.names = FALSE, sep = "\t", quote = FALSE)
-      # Save final metatable
-      write.table(reactives$metadata_6, 
-        file = paste0(reactives$output_dir, "/1_final-data-output/Metatable_final.txt"),
-        row.names = FALSE, sep = "\t", quote = FALSE)
-      
-      # ------------------------------------------------------------------------
-      # Save other files - alpha/beta diversity and quality control
-      # ------------------------------------------------------------------------
-      # Save alpha diversity values
-      write.table(
-        data.frame(Sample_ID = rownames(reactives$alpha_diversity_data), 
-                   reactives$alpha_diversity_data), 
-        file = paste0(reactives$output_dir, "/3_analysis-output/Alpha-diversity_values.txt"),
-        row.names = FALSE, sep = "\t", quote = FALSE)
-      # Save beta diversity distance matrix
-      distance_matrix <- as.data.frame(
+      # Create beta diversity distance matrix of all samples
+      print(paste0("INFO - pre-calculate beta diversity values - ", Sys.time()))
+      reactives$distance_matrix <- as.data.frame(
         as.matrix(vegdist(decostand(t(reactives$featuredata_6), method = "total"), 
                           method = "bray")))
-      write.table(
-        data.frame(Sample_ID = rownames(distance_matrix), distance_matrix,
-                   check.names = FALSE), 
-        file = paste0(reactives$output_dir, "/3_analysis-output/Beta-diversity_distance-matrix.txt"),
-        row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
-      
-      # Save contamination filter basis
-      write.table(
-        data.frame(OTU_ID = rownames(reactives$filter_basis), 
-                   reactives$filter_basis), 
-        file = paste0(reactives$output_dir, "/2_quality-control/Contamination_filter_basis.txt"),
-        row.names = FALSE, sep = "\t", quote = FALSE)
-      # Save reduction of reads per feature by filter step
-      Reduction_per_feature <- 
-        Reduce(function(x, y) merge(x = x, y = y, by.x = "Row.names", by.y = 0, 
-                                    all.x = TRUE), 
-               list(data.frame(Row.names = names(rowSums(reactives$featuredata)),
-                               Original = rowSums(reactives$featuredata)), 
-                    data.frame(Step1 = rowSums(reactives$featuredata_1)), 
-                    data.frame(Step2 = rowSums(reactives$featuredata_2)),
-                    data.frame(Step3 = rowSums(reactives$featuredata_3)),
-                    data.frame(Step4 = rowSums(reactives$featuredata_4)),
-                    data.frame(Step5 = rowSums(reactives$featuredata_5))))
-      colnames(Reduction_per_feature)[1] <- "OTU_ID"
-      write.table(
-        Reduction_per_feature, 
-        file = paste0(reactives$output_dir, "/2_quality-control/Read_reduction_per_feature.txt"),
-        row.names = FALSE, sep = "\t", quote = FALSE)
-      # Save reduction of reads per species by filter step 
-      Reduction_per_taxonomy <- 
-        merge(Reduction_per_feature, reactives$featuredata_taxonomy,
-              by.x = "OTU_ID", by.y = 0, all = TRUE)
-      Reduction_per_taxonomy <- Reduction_per_taxonomy %>% 
-        group_by(Taxonomy) %>%
-        summarise_at(vars(Original, Step1, Step2, Step3, Step4, Step5),
-                     sum, na.rm = TRUE)
-      write.table(
-        Reduction_per_taxonomy, 
-        file = paste0(reactives$output_dir, "/2_quality-control/Read_reduction_per_taxonomy.txt"),
-        row.names = FALSE, sep = "\t", quote = FALSE)
-
-      # ------------------------------------------------------------------------
-      # Create overview file for filter settings
-      # ------------------------------------------------------------------------
-      writeLines(paste0(c(
-        "MicrobIEM - quality control and analysis tool for microbiome data",
-        "-----------------------------------------------------------------",
-        "", "Input meta table:", input$metafile$name,
-        "", "Input feature table:", input$featurefile$name,
-        "", "Minimum reads per sample:", input$req_reads_per_sample,
-        "", "Minimum reads per feature:", input$req_reads_per_feature,
-        "", "Minimum relative frequency per feature:", input$req_ratio_per_feature,
-        "", "Frequency mean ratio (NEG1 by SAMPLE):", 
-        names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg1]),
-        "", "Span threshold (NEG1):", 
-        names(reactives$neg1_span_steps[reactives$neg1_span_steps == 
-                                          reactives$req_span_neg1]),
-        "", "Frequency mean ratio (NEG2 by SAMPLE):", 
-        names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg2]),
-        "", "Span threshold (NEG2):", 
-        names(reactives$neg2_span_steps[reactives$neg2_span_steps == 
-                                          reactives$req_span_neg2])), 
-        sep = " "), paste0(reactives$output_dir, "/1_final-data-output/Filter_settings.txt"))
       
       # ------------------------------------------------------------------------
       # Information for the user for analysis
@@ -630,21 +585,12 @@ server <- function(input, output, session) {
                sum(rowSums(reactives$featuredata_6)), " reads in ", 
                nrow(reactives$featuredata_6), 
                " features remaining for analysis.", 
-               "<br><br> If you are using MicrobIEM through RStudio, 
-               a new output directory '", reactives$output_dir, 
-               "' has been created in your MicrobIEM folder. 
-               The following files have been saved: 
-               <br>&#8226 Filtered metafile and featurefile,
-               <br>&#8226 Filter settings and quality control files,
-               <br>&#8226 Raw values for alpha and beta diversity analysis.
-               <br><br> Please do not change the name and structure of this 
-               folder and its files while running MicrobIEM.
-               <br><br> If you using MicrobIEM through a web browser,
-               please download the data manually in the 'Download' tab.")),
+               "<br><br> Please do not forget to ", 
+               HTML("<b>download the final filtered 
+               featurefile, metafile, and the filter settings in the 'Download'
+               tab</b>."))),
         footer = tagList(modalButton("Ok"))
       ))
-      # Save zip files
-      reactives$zipfiles <- c("Reduction_per_taxonomy", "Reduction_per_feature")
     }
     
     # --------------------------------------------------------------------------
@@ -989,20 +935,37 @@ server <- function(input, output, session) {
           tabPanel(
             title = "Download",
             br(),
-            downloadButton("downloadZIP", "Download as ZIP"), # new
+            h5(tags$b("Final filtered data output:")),
+            downloadButton("download_feature_abs", "Final feature file (counts)"),
+            downloadButton("download_feature_rel", "Final feature file (rel. abundance)"),
+            downloadButton("download_metafile", "Final metafile"),
+            br(), br(),
+            h5(tags$b("Final filter settings:")),
+            downloadButton("download_filtersettings", "Filter settings"),
+            br(), br(),
+            h5(tags$b("Files for quality control:")),
+            downloadButton("download_contbasis", "Basis for contamination filtering"),
+            downloadButton("download_redfeature", "Read reduction per feature"),
+            downloadButton("download_redtaxonomy", "Read reduction per taxonomy"),
+            br(), br(),
+            h5(tags$b("Basic diversity analyses (all samples):")),
+            downloadButton("download_allalpha", "Alpha diversity values"),
+            downloadButton("download_allbeta", "Beta diversity distance matrix"),
+            br(), br(),
+            h5(tags$b("Current analysis values:")),
             h6(tags$b("Analysis-specific values will be available for download 
                       once the respective analysis was performed."), 
                id = "analysis_first"),
-            downloadButton(outputId = "download_alpha",
+            downloadButton(outputId = "download_current_alpha",
                                 label = "Current alpha diversity values"),
-            downloadButton(outputId = "download_beta",
+            downloadButton(outputId = "download_current_beta",
                                 label = "Current beta diversity values"),
-            downloadButton(outputId = "download_taxonomy",
+            downloadButton(outputId = "download_current_taxonomy",
                                 label = "Current taxonomy values")
           )
         )
       }
-      updateTabsetPanel(session, "tabset", selected = "Alpha diversity")
+      updateTabsetPanel(session, "tabset", selected = "Download")
     }    
   }
   
@@ -1033,15 +996,16 @@ server <- function(input, output, session) {
       ))
       updateTabsetPanel(session, "tabset", selected = "Filtering")
     }
+    # Hide download buttons for current analysis when analysis was not yet done
     if(is.null(reactives$alpha_diversity_download)) {
-      shinyjs::hide("download_alpha")
-    } else {shinyjs::show("download_alpha")}
+      shinyjs::hide("download_current_alpha")
+    } else {shinyjs::show("download_current_alpha")}
     if(is.null(reactives$beta_diversity_download)) {
-      shinyjs::hide("download_beta")
-    } else {shinyjs::show("download_beta")}
+      shinyjs::hide("download_current_beta")
+    } else {shinyjs::show("download_current_beta")}
     if(is.null(reactives$taxonomy_download)) {
-      shinyjs::hide("download_taxonomy")
-    } else {shinyjs::show("download_taxonomy")}
+      shinyjs::hide("download_current_taxonomy")
+    } else {shinyjs::show("download_current_taxonomy")}
     if(!is.null(reactives$alpha_diversity_download) && 
        !is.null(reactives$beta_diversity_download) &&
        !is.null(reactives$taxonomy_download)) {
@@ -1409,26 +1373,134 @@ server <- function(input, output, session) {
   }
   
   # ----------------------------------------------------------------------------
-  # Data download - all other data
+  # Data download - final filtered files
   # ----------------------------------------------------------------------------
-  output$downloadZIP <- downloadHandler(
-    filename = "MicrobIEM_Filtered_feature_and_metafile",
-    content = function(file)
-    contentType = "application/zip"
+  # Download final filtered feature table as counts
+  output$download_feature_abs <- downloadHandler(
+    filename = function() {
+      paste0("MicrobIEM_Featuretable_abs_final_", 
+             format(Sys.time(), "%Y_%m_%d"), ".txt")
+    },
+    content = function(file) {
+      write.table(reactives$download_featuredata_abs, file = file, 
+                  row.names = FALSE, sep = "\t", quote = FALSE)
+    }
+  )
+  # Download final filtered feature table as relative abundances
+  output$download_feature_rel <- downloadHandler(
+    filename = function() {
+      paste0("MicrobIEM_Featuretable_rel_final_", 
+             format(Sys.time(), "%Y_%m_%d"), ".txt")
+    },
+    content = function(file) {
+      write.table(reactives$download_featuredata_rel, file = file, 
+                  row.names = FALSE, sep = "\t", quote = FALSE)
+    }
+  )
+  # Download final metafile
+  output$download_metafile <- downloadHandler(
+    filename = function() {
+      paste0("MicrobIEM_Metatable_final_", 
+             format(Sys.time(), "%Y_%m_%d"), ".txt")
+    },
+    content = function(file) {
+      write.table(reactives$metadata_6, file = file, row.names = FALSE, 
+                  sep = "\t", quote = FALSE)
+    }
+  )
+  # ----------------------------------------------------------------------------
+  # Data download - Filter settings
+  # ----------------------------------------------------------------------------
+  output$download_filtersettings <- downloadHandler(
+    filename = function() {
+      paste0("MicrobIEM_Filter_settings_", 
+             format(Sys.time(), "%Y_%m_%d"), ".txt")
+    },
+    content = function(file) {
+      write.table(reactives$download_filtersettings, file = file, 
+                  col.names = FALSE, row.names = FALSE, quote = FALSE)
+    }
   )
   
   # ----------------------------------------------------------------------------
-  # Data download - alpha diversity
+  # Data download - Quality control
   # ----------------------------------------------------------------------------
-  output$download_alpha <- downloadHandler(
+  # Download contamination filter basis
+  output$download_contbasis <- downloadHandler(
+    filename = function() {
+      paste0("MicrobIEM_Contamination_filter_basis_", 
+             format(Sys.time(), "%Y_%m_%d"), ".txt")
+    },
+    content = function(file) {
+      write.table(data.frame(OTU_ID = rownames(reactives$filter_basis), 
+                             reactives$filter_basis), file = file,
+                  row.names = FALSE, sep = "\t", quote = FALSE)
+    }
+  )
+  # Download reduction of reads per feature by filter step
+  output$download_redfeature <- downloadHandler(
+    filename = function() {
+      paste0("MicrobIEM_Read_reduction_per_feature_", 
+             format(Sys.time(), "%Y_%m_%d"), ".txt")
+    },
+    content = function(file) {
+      write.table(reactives$download_reduction_per_feature, file = file,
+                  row.names = FALSE, sep = "\t", quote = FALSE)
+    }
+  )
+  # Download reduction of reads per highest taxonomy by filter step 
+  output$download_redtaxonomy <- downloadHandler(
+    filename = function() {
+      paste0("MicrobIEM_Read_reduction_per_taxonomy_", 
+             format(Sys.time(), "%Y_%m_%d"), ".txt")
+    },
+    content = function(file) {
+      write.table(reactives$download_reduction_per_taxonomy, file = file, 
+        row.names = FALSE, sep = "\t", quote = FALSE)
+    }
+  )
+  
+  # ----------------------------------------------------------------------------
+  # Data download - Basic analysis values
+  # ----------------------------------------------------------------------------
+  # Save alpha diversity values
+  output$download_allalpha <- downloadHandler(
+    filename = function() {
+      paste0("MicrobIEM_Alpha_diversity_values_", 
+             format(Sys.time(), "%Y_%m_%d"), ".txt")
+    },
+    content = function(file) {
+      write.table(data.frame(Sample_ID = rownames(reactives$alpha_diversity_data), 
+                   reactives$alpha_diversity_data), file = file,
+        row.names = FALSE, sep = "\t", quote = FALSE)
+    }
+  )
+  # Save beta diversity values
+  output$download_allbeta <- downloadHandler(
+    filename = function() {
+      paste0("MicrobIEM_Beta_diversity_distance_matrix_", 
+             format(Sys.time(), "%Y_%m_%d"), ".txt")
+    },
+    content = function(file) {
+      write.table(data.frame(Sample_ID = rownames(reactives$distance_matrix), 
+                             reactives$distance_matrix, check.names = FALSE), 
+                  file = file, row.names = FALSE, col.names = TRUE, 
+                  sep = "\t", quote = FALSE)
+    }
+  )
+  
+  # ----------------------------------------------------------------------------
+  # Current data download - alpha diversity
+  # ----------------------------------------------------------------------------
+  output$download_current_alpha <- downloadHandler(
     filename = function() {
       paste0(
-        "Alpha-diversity_",
+        "MicrobIEM_Alpha_diversity_",
         gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_alpha), "_", # Variable name
         if(reactives$subvar_alpha != "ignore") {
           paste0(gsub("[^0-9a-zA-Z_-]", "", reactives$subvar_alpha), "_")
         },
-        format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+        format(Sys.time(), "%Y_%m_%d"), ".txt") # Date of download
     }, 
     content = function(file) {
       write.table(
@@ -1439,15 +1511,15 @@ server <- function(input, output, session) {
   )
 
   # ----------------------------------------------------------------------------
-  # Data download - beta diversity
+  # Current data download - beta diversity
   # ----------------------------------------------------------------------------
-  output$download_beta <- downloadHandler(
+  output$download_current_beta <- downloadHandler(
     filename = function() {
       paste0(
-        "Beta-diversity_",
+        "MicrobIEM_Beta_diversity_",
         substr(reactives$plot_beta, 6, 9), "_", # nMDS or PCoA
         gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_beta), "_", # Variable name
-        format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+        format(Sys.time(), "%Y_%m_%d"), ".txt") # Date of download
     },
     content = function(file) {
       write.table(
@@ -1458,15 +1530,15 @@ server <- function(input, output, session) {
   )
 
   # ----------------------------------------------------------------------------
-  # Data download - taxonomy
+  # Current data download - taxonomy
   # ----------------------------------------------------------------------------
-  output$download_taxonomy <- downloadHandler(
+  output$download_current_taxonomy <- downloadHandler(
     filename = function() {
       paste0(
-        "Taxonomy_",
+        "MicrobIEM_Taxonomy_",
         reactives$taxonomy_level, "_", # Taxonomic level
         gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_taxonomy), "_", # Variable name
-        format(Sys.time(), "%H-%M-%S"), ".txt") # Timepoint of download
+        format(Sys.time(), "%Y_%m_%d"), ".txt") # Date of download
     },
     content = function(file) {
       write.table(
