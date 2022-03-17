@@ -17,44 +17,52 @@ MicrobIEM is a user-friendly tool for quality control and interactive analysis o
 - Taxonomy analysis
 
 ## 2. Installation 
-### Download R
+MicrobIEM can be run in two ways - through any web browser without any installation of R or RStudio, or directly through RStudio.
+
+### Running MicrobIEM through a webbrowser
+You can run MicrobIEM directly in your web browser without any installation: https://env-med.shinyapps.io/microbiem/
+
+### Running MicrobIEM through RStudio
+#### Download R
 Download and install the software package R from the [R project website](https://cran.r-project.org/bin/windows/base/). If you already used R on your machine, please update it to at least version 4.0.
 
-### Download RStudio
+#### Download RStudio
 Download and install RStudio, an integrated development environment (IDE) for R, from the [RStudio website](https://rstudio.com/products/rstudio/download/).
 
-### Install Shiny
+#### Install Shiny
 Once R and RStudio are properly installed, open RStudio and type or copy the following command in the console:
 ``` r
 install.packages("shiny")
 ```
 Pressing enter starts the installation.
 
-### Download MicrobIEM
+#### Download MicrobIEM
 Download MicrobIEM and save and unzip the folder on your machine. 
 
 You can download MicrobIEM by clicking the green "Code" button in the top right of this repository and select "Download ZIP".  
 
-## 3. Usage
-
-### Start the tool
-In your unzipped MicrobIEM folder, open the file 'server' by doubleclicking - it should automatically open in RStudio. Press the 'Run App' button in the upper middle to start MicrobIEM.  
+#### Start the tool
+In your unzipped MicrobIEM folder, do a right-click on the file "server". Click "Open with..." and select RStudio. In RStudio, press the "Run App" button in the upper middle to start MicrobIEM.  
 When you start MicrobIEM for the first time, this step may take some minutes because additional packages may need to be installed.
 <img src="MicrobIEM/man/09_Start-MicrobIEM.png"/> 
+
+## 3. Usage
 
 ### Prepare your data
 MicrobIEM requires the input data - a feature file and a meta file - to be in a specific format. You can see an example of the required formats in the folder /MicrobIEM-main/MicrobIEM/Test-Data.
 
 #### Featurefile
-The feature file can be an OTU table or an ASV table, and contains sequenced read counts for each sample. It should be .txt or .csv file. The first column must be called "OTU_ID" and must contain unique names of features. The next columns start with the name of each sample. The last column must be called "Taxonomy" and contain information on taxonomic classification.
+The feature file can be an OTU table or an ASV table, and contains sequenced read counts for each sample. It should be a tab-separated .txt file. The first column must be called "OTU_ID" and must contain unique names of features. The next columns start with the name of each sample. The last column must be called "Taxonomy" and contain information on taxonomic classification. You can see an example of a correctly formatted feature file  [here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data/MicrobIEM_test-data_featurefile.txt). 
 <img src="MicrobIEM/man/02_Featurefile.png"/> 
 
 #### Metafile
-The metafile contains additional information on each sample. It should be .txt or .csv file. The first column must be called "Sample_ID" and contains the same sample names that are found in the featurefile. One column in the metafile must be called "Sample_type" and contain the classification of samples into real samples and positive and negative controls. Please use the following terms to define samples and controls:
+The metafile contains additional information on each sample. It should be a tab-separated .txt file. The first column must be called "Sample_ID" and contains the same sample names that are found in the featurefile. One column in the metafile must be called "Sample_type" and contain the classification of samples into real samples and positive and negative controls. Please use the following terms to define samples and controls:
 
 - "SAMPLE" for real samples
 - "NEG1" or "NEG2" for up to 2 different types of negative controls
 - "POS1" for positive controls
+
+You can see an example of a correctly formatted metafile  [here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data/MicrobIEM_test-data_metafile.txt).
 
 <img src="MicrobIEM/man/03_Metafile.png"/> 
 
