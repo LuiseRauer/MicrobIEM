@@ -604,6 +604,7 @@ server <- function(input, output, session) {
         ggplot(data = correlation_plot, aes(x = Reads, y = Features)) +
           geom_point(aes(text = paste("Sample:", rownames(correlation_plot))),
                      colour = "#2fa4e7") +
+          scale_x_log10() +
           plot_theme
       })
     }
