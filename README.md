@@ -69,6 +69,9 @@ You can see an example of a correctly formatted metafile  [here](https://github.
 ### Perform quality control 
 <img src="MicrobIEM/man/04_Contaminant-removal.png"/> 
 
+#### Using only the MicrobIEM decontamination algorithm
+Advanced users who want to run the MicrobIEM decontamination algorithm directly in R can download the [MicrobIEM_decontamination.R function](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM_decontamination.R) and check out the [example code](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM_decontamination_example.R).
+
 ### Explore your data
 <img src="MicrobIEM/man/05_Beta-diversity.png"/> 
 
