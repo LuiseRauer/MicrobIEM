@@ -470,6 +470,9 @@ server <- function(input, output, session) {
                    Sys.time()))
       reactives$featuredata_6 <- reactives$featuredata_current
       reactives$metadata_6 <- reactives$metadata_current
+      # Replace "n.a." to NA in metafile for download to facilitate loading in R
+      reactives$metadata_download <- reactives$metadata_6
+      reactives$metadata_download[reactives$metadata_download == "n.a."] <- NA
       print(paste0("INFO - create final files for download - ", Sys.time()))
       
       # ------------------------------------------------------------------------
@@ -1420,7 +1423,7 @@ server <- function(input, output, session) {
              format(Sys.time(), "%Y_%m_%d"), ".txt")
     },
     content = function(file) {
-      write.table(reactives$metadata_6, file = file, row.names = FALSE, 
+      write.table(reactives$metadata_download, file = file, row.names = FALSE, 
                   sep = "\t", quote = FALSE)
     }
   )
