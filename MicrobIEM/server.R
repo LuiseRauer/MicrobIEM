@@ -599,12 +599,27 @@ server <- function(input, output, session) {
     if(input$visualization_type == "Correlation of reads and features") {
       correlation_plot <- data.frame(
         Reads = colSums(reactives$featuredata_current),
-        Features = apply(reactives$featuredata_current, 2, function(x) sum(x > 0)))
+        Features = apply(reactives$featuredata_current, 2, function(x) sum(x > 0)),
+        Type = "SAMPLE")
+      correlation_plot_NEG1 <- data.frame(
+        Reads = colSums(reactives$featuredata_neg1),
+        Features = apply(reactives$featuredata_neg1, 2, function(x) sum(x > 0)),
+        Type = rep("NEG1", ncol(reactives$featuredata_neg1)))
+      correlation_plot_NEG2 <- data.frame(
+        Reads = colSums(reactives$featuredata_neg2),
+        Features = apply(reactives$featuredata_neg2, 2, function(x) sum(x > 0)),
+        Type = rep("NEG2", ncol(reactives$featuredata_neg2)))
+      correlation_plot <- do.call(
+        "rbind.data.frame", 
+        list(correlation_plot, correlation_plot_NEG1, correlation_plot_NEG2))
       output$plot <- renderPlotly({
-        ggplot(data = correlation_plot, aes(x = Reads, y = Features)) +
-          geom_point(aes(text = paste("Sample:", rownames(correlation_plot))),
-                     colour = "#2fa4e7") +
-          scale_x_log10() +
+        ggplot(data = correlation_plot, 
+               aes(x = Reads, y = Features, colour = Type)) +
+          geom_point(aes(text = paste("Sample:", rownames(correlation_plot)))) +
+          scale_colour_manual(
+            "Sample type", values = setNames(c("#2fa4e7", "#d05517", "#f1aa87"),
+                                             nm = c("SAMPLE", "NEG2", "NEG1"))) +
+          scale_x_log10() + scale_y_log10() +
           plot_theme
       })
     }
