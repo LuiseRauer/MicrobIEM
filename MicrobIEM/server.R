@@ -208,10 +208,14 @@ server <- function(input, output, session) {
                                    sample_types_allowed[4]), "Sample_ID"]
       reactives$featuredata_neg1 <- reactives$featuredata[, ID_NEG1, drop = FALSE]
       # Create span UI values and default value for NEG1
-      neg1_span_values <- seq(1, ncol(reactives$featuredata_neg1))
+      if (ncol(reactives$featuredata_neg1) > 0) {
+        neg1_span_values <- seq(1, ncol(reactives$featuredata_neg1))
+      } else { # Empty vector if no NEG1 controls are present
+        neg1_span_values <- c()
+      }
       reactives$neg1_span_steps <- setNames(
         c(0.0001, neg1_span_values/length(neg1_span_values)), 
-        nm = c("ignore", paste0(
+        nm = c("ignore", if(ncol(reactives$featuredata_neg1) > 0) paste0(
           round(neg1_span_values/length(neg1_span_values), 2), " (",
           neg1_span_values, "/", length(neg1_span_values), ")")))
       reactives$req_span_neg1 <- reactives$neg1_span_steps[1]
@@ -225,10 +229,14 @@ server <- function(input, output, session) {
                    length(ID_NEG1), " NEG1 controls, and ",
                    length(ID_NEG2), " NEG2 controls in the data."))
       # Create span UI values and default value for NEG2
-      neg2_span_values <- seq(1, ncol(reactives$featuredata_neg2))
+      if (ncol(reactives$featuredata_neg2) > 0) {
+        neg2_span_values <- seq(1, ncol(reactives$featuredata_neg2))
+      } else { # Empty vector if no NEG1 controls are present
+        neg2_span_values <- c()
+      }
       reactives$neg2_span_steps <- setNames(
         c(0.0001, neg2_span_values/length(neg2_span_values)), 
-        nm = c("ignore", paste0(
+        nm = c("ignore", if(ncol(reactives$featuredata_neg2) > 0) paste0(
           round(neg2_span_values/length(neg2_span_values), 2), " (",
           neg2_span_values, "/", length(neg2_span_values), ")")))
       reactives$req_span_neg2 <- reactives$neg2_span_steps[1]
