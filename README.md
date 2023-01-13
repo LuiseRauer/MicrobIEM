@@ -1,25 +1,53 @@
 # MicrobIEM
 
-## 1. Overview
+MicrobIEM is a user-friendly tool for quality control, contaminant removal, and interactive analysis of microbiome data. Data of a microbiome study are loaded via the graphical user interface. For each step in quality control, interactive visualisations enable the users to explore their samples and define thresholds for filtering the data. The final data set can then be further investigated in MicrobIEM with statistical analysis common in microbiome research. Raw data, figures and corresponding p-values can be downloaded in the end. MicrobIEM is a fast tool that allows the user to curate and explore microbiome data without any knowledge in coding.
 
-<img src="MicrobIEM/man/01_Interface.png"/> 
+<img src="MicrobIEM/man/01_Correlation-reads-features.png"/> 
 
-MicrobIEM is a user-friendly tool for quality control and interactive analysis of microbiome data. A feature table and a metafile of a microbiome study are loaded via the graphical user interface. For each step in quality control, interactive visualisations allow users to explore their data and help defining thresholds for filtering the data. The final data set can then be further investigated with statistical analysis common in microbiome research. Raw data, figures and corresponding p-values can be downloaded in the end. Thus, MicrobIEM is a fast tool that allows the user to explore microbiome data without any knowledge in coding.
+## Table of contents 
 
-#### Available quality control steps:
+1.  [Overview of methods](#overview-of-methods)
+2.  [Installation](#installation)
+    - [Recommended: Running MicrobIEM through a webbrowser](#recommended-running-microbiem-through-a-webbrowser)
+    - [Running MicrobIEM through RStudio](#running-microbiem-through-rstudio)
+3.  [Usage](#usage)
+    - [Prepare your data](#prepare-your-data)
+        - [Featurefile](#featurefile)
+        - [Metafile](#metafile)
+    - [Quality control with MicrobIEM](#quality-control-with-microbiem)
+        - [Sample filter](#sample-filter)
+        - [Feature filter](#feature-filter)
+        - [Contamination filter](#contamination-filter)
+    - [Save your results](#save-your-results)
+    - [Explore your data: Basic statistical analyses](#explore-your-data-basic-statistical-analyses)
+        - [Alpha diversity](#alpha-diversity)
+        - [Beta diversity](#beta-diversity)
+        - [Taxonomic composition](#taxonomic-composition)
+    - [Select samples of interest](#select-samples-of-interest)
+    - [Save your figures](#save-your-figures)
+4.  [Advanced users: stand-alone MicrobIEM decontamination algorithm](#advanced-users-stand-alone-microbiem-decontamination-algorithm)
+5.  [Cite this tool](#cite-this-tool)
+6.  [References](#references)
+
+## 1. Overview of methods
+
+Available quality control steps:
+
 - Sample filter: by number of total reads
 - Feature filter: by maximum absolute abundance and maximum relative abundance
-- Contaminant filter: by abundance in negative controls compared to samples
+- Contaminant filter: by abundance in negative controls compared to samples, and span in negative controls
 
-#### Available statistical analyses:
+Available statistical analyses:
+
 - Alpha diversity (Richness, Shannon, Simpson, Inverse Simpson, Evenness)
 - Beta diversity (PCoA, nMDS, on Bray-Curtis dissimilarities)
-- Taxonomy analysis
+- Taxonomic composition
 
 ## 2. Installation 
-MicrobIEM can be run in two ways - through any web browser without any installation of R or RStudio, or directly through RStudio.
 
-### Running MicrobIEM through a webbrowser
+MicrobIEM can be run in two ways - through any web browser without any installation, or through RStudio after installing R and RStudio.
+
+### Recommended: Running MicrobIEM through a webbrowser
 You can run MicrobIEM directly in your web browser without any installation: https://env-med.shinyapps.io/microbiem/
 
 ### Running MicrobIEM through RStudio
@@ -44,16 +72,18 @@ You can download MicrobIEM by clicking the green "Code" button in the top right 
 #### Start the tool
 In your unzipped MicrobIEM folder, do a right-click on the file "server". Click "Open with..." and select RStudio. In RStudio, press the "Run App" button in the upper middle to start MicrobIEM.  
 When you start MicrobIEM for the first time, this step may take some minutes because additional packages may need to be installed.
-<img src="MicrobIEM/man/09_Start-MicrobIEM.png"/> 
+
+<img src="MicrobIEM/man/02_Start-MicrobIEM.png"/> 
 
 ## 3. Usage
 
 ### Prepare your data
-MicrobIEM requires the input data - a feature file and a meta file - to be in a specific format. You can see an example of the required formats in the folder /MicrobIEM-main/MicrobIEM/Test-Data.
+MicrobIEM requires two files as input data: a feature file and a meta file. The two files need to be in a specific format. You can see an example of the required formats in the folder /MicrobIEM-main/MicrobIEM/Test-Data ([here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data)) on Github .
 
 #### Featurefile
-The feature file can be an OTU table or an ASV table, and contains sequenced read counts for each sample. It should be a tab-separated .txt file. The first column must be called "OTU_ID" and must contain unique names of features. The next columns start with the name of each sample. The last column must be called "Taxonomy" and contain information on taxonomic classification. You can see an example of a correctly formatted feature file  [here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data/MicrobIEM_test-data_featurefile.txt). 
-<img src="MicrobIEM/man/02_Featurefile.png"/> 
+The feature file can be an OTU table or an ASV table, and contains sequenced read counts for each sample. It should be a tab-separated .txt file. The first column must be called "OTU_ID" and must contain unique names of features. The next columns start with the name of each sample. The last column must be called "Taxonomy" and contain information on taxonomic classification, with taxonomic levels separated by semicolon. You can see an example of a correctly formatted feature file  [here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data/MicrobIEM_test-data_featurefile.txt). 
+
+<img src="MicrobIEM/man/03_Featurefile.png"/> 
 
 #### Metafile
 The metafile contains additional information on each sample. It should be a tab-separated .txt file. The first column must be called "Sample_ID" and contains the same sample names that are found in the featurefile. One column in the metafile must be called "Sample_type" and contain the classification of samples into real samples and positive and negative controls. Please use the following terms to define samples and controls:
@@ -64,29 +94,115 @@ The metafile contains additional information on each sample. It should be a tab-
 
 You can see an example of a correctly formatted metafile  [here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data/MicrobIEM_test-data_metafile.txt).
 
-<img src="MicrobIEM/man/03_Metafile.png"/> 
+<img src="MicrobIEM/man/04_Metafile.png"/> 
 
-### Perform quality control 
-<img src="MicrobIEM/man/04_Contaminant-removal.png"/> 
+Typical negative controls are pipeline negative controls (here: NEG2), which gather contaminants over the complete data generation pipeline, and PCR controls (here: NEG1), which are added prior to the PCR amplification [(Hornung, Zwittink, and Kuiper 2019)](#references).
 
-#### Using only the MicrobIEM decontamination algorithm
-Advanced users who want to run the MicrobIEM decontamination algorithm directly in R can download the [MicrobIEM_decontamination.R function](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM_decontamination.R) and check out the [example code](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM_decontamination_example.R).
+### Quality control with MicrobIEM 
 
-### Explore your data
-<img src="MicrobIEM/man/05_Beta-diversity.png"/> 
+<img src="MicrobIEM/man/05_Quality-control-overview.png"/>
 
-### Select samples of interest
-<img src="MicrobIEM/man/06_Sample-selection.png"/> 
+Several optional steps for quality control are available in MicrobIEM: 
 
-### Save your figures
-<img src="MicrobIEM/man/07_Save-figures.png"/> 
+-	Sample filter: Exclusion of samples with low total reads, i.e. low sequencing depth 
+-	Feature filter: Exclusion of features (ASVs/OTUs) with low abundance, available as:
+    - Exclusion of features with low absolute abundance, i.e. low number of reads (e.g. singletons)
+    -	Exclusion of features with low relative abundance
+-	Contamination filter: Exclusion of contaminant features (ASVs/OTUs) based on negative controls
+
+To visualize the effect of each filter setting (x~1~-x~5~), several interactive plots are provided in MicrobIEM:
+
+-	Correlation of reads and features: to check for sufficient sequencing depth per sample
+-	Change in feature abundance: to check the number of reads per feature before and after application of filter settings
+-	Contamination removal – NEG1 based: to check which features present in the NEG1 control are removed
+-	Contamination removal – NEG2 based: to check which features present in the NEG2 control are removed
+-	Reduction of total reads per step: to check the impact of each filtering step on the data set
+
+The available quality control steps in MicrobIEM can be either used as described, or skipped (partially or altogether) to proceed directly to microbiome data analysis.  
+To apply new settings and explore the effect on the interactive plots in a specific step, press “Update plot”. When a setting has been chosen and you would like to proceed to the next step, press “Next”. To re-adjust settings in a previous step, press “Back”.
+
+#### Sample filter
+Low sequencing depth – i.e. low number of reads per sample – is a hint towards experimental failure due to technical problems in sampling or amplification [(Lagkouvardos et al. 2017)](#references). Thus, those samples should be removed from the analysis. The sequencing depth varies between sequencing runs, therefore no general advice on a minimum sequencing depth can be given. However, the following parameters may be considered when excluding samples: the number of reads in the PCR control, and the distribution of reads and features over samples.  
+The PCR control (here: NEG1) should contain only a low number of reads. If PCR controls have similar levels of reads as the samples, this hints towards a contamination in the sequencing run or to a general failure of the experiment. As no bacteria are expected in the PCR control, one option is to exclude samples with a lower number of reads than in the PCR controls. MicrobIEM displays the number of reads and features in the plot “Correlation of reads and features” for each sample and NEG1 and NEG2 controls (as defined in metadata table). The pipeline control (here: NEG2) is more suitable for decontamination and may be neglected in the sample filter step. Depending on the sampled environment, pipeline controls may have similar numbers of reads as found in samples.  
+A second indicator for high quality of the sequencing run is the absence of a correlation between the number of reads (= sequencing depth) and the number of features (= richness), which can also be checked in MicrobIEM’s plot “Correlation of reads and features”. Sequencing depth strongly effects richness [(Sanchez-Cid et al. 2022)](#references), thus sequencing sufficiently deep should result in a read-independent number of features per sample. 
+
+<img src="MicrobIEM/man/01_Correlation-reads-features.png"/> 
+
+#### Feature filter
+Features with a low maximum absolute abundance over all samples (e.g. singletons or doubletons) or with a low maximum relative abundance over all samples (equivalent to the Frequency filter) can be removed as they often represent e.g. spurious sequencing errors [(Reitmeier et al. 2021)](#references). The plot “Change in feature abundance” is suitable to check the feature abundance before and after application of filter settings.
+
+#### Contamination filter
+In MicrobIEM, contaminant removal is based on negative controls. As identifying contaminant features solely by their presence in negative controls is not recommended [(Karstens et al. 2019)](#references), two new concepts were implemented in MicrobIEM: 1) the ratio of the mean relative abundance of a sequence in negative controls versus in environmental samples, since a “systematic” contaminant (i.e. not sporadic, originating from e.g. lab consumables) should appear in rather high relative abundance in the expectably empty negative controls, and 2) a span threshold measuring the proportion of negative control samples contaminated with this sequence, since “systematic” contaminants should not appear only sporadically in a small fraction of negative controls.  
+These contamination filters (span and ratio) can be applied independently for two types of controls (NEG1 and NEG2, e.g. PCR and Pipeline negative control). We recommend to use the pipeline negative controls for contaminant removal, since contaminants over all steps from sampling to sequencing should accumulate in these controls.  
+The interactive “Contamination removal plots” are suitable to check which features occur in the respective negative controls. Bubble size indicates the mean relative abundance per feature in samples, and colors indicate whether these features are kept or removed by the current settings. Hovering over the bubbles give further information on each feature, e.g. about its taxonomic annotation to the level provided. The taxonomic annotation per feature can be further compared to typical contaminants described in literature, e.g. as can be found in [(Eisenhofer et al. 2019)](#references). 
+
+<img src="MicrobIEM/man/06_Contaminant-removal.png"/> 
 
 ### Save your results
-<img src="MicrobIEM/man/08_Save-results.png"/> 
 
-## 4. Cite this tool
+After quality control has been performed successfully, the user proceeds to data analysis. When you are using MicrobIEM through RStudio, a folder named by current date and time is generated  automatically in the MicrobIEM folder on your computer. This folder contains information on quality control, settings, and the final data, stored in three subfolders:  
+
+- 1_final-data-output: containing the final feature table, final metadata table and chosen quality control setting
+- 2_quality-control: containing additional information on contaminant removal, and the reduction of reads per filter step
+- 3_analysis-output: containing alpha-diversity values per sample and the distance matrix for beta-diversity
+
+**When you are using MicrobIEM through a webbrowser, you have to manually store all files generated by MicrobIEM from MicrobIEM's "Download" section to your computer.**
+
+<img src="MicrobIEM/man/07_Download-files.png"/> 
+
+### Explore your data: Basic statistical analyses
+
+The final filtered feature table can be explored and visualized with the most common analyses for microbiome research: alpha diversity, beta diversity, and the distribution of microbial taxa (taxonomic composition). 
+
+#### Alpha diversity
+Within-sample alpha diversity can be estimated by two contrasting components: richness, the number of taxa present, and evenness, the uniformity of taxa distributions.  
+In practice, alpha diversity is frequently reported by “mixed” measures of alpha diversity – such as the commonly used Shannon or Simpson index – which cover the two components in different functions. MicrobIEM provides alpha diversity analyses with pure Richness, pure Evenness, and the mixed measures Shannon, Simpson, and Inverse Simpson diversity index [(Thukral 2017)](#references). Differences in alpha diversity between groups are estimated by a Kruskal-Wallis test. 
+
+<img src="MicrobIEM/man/08_Alpha-diversity.png"/> 
+
+#### Beta diversity
+Beta diversity in MicrobIEM is estimated by Bray-Curtis dissimilarity between samples and is visualized by Principal Coordinates Analysis (PCoA) or non-metric multidimensional scaling (nMDS) [(Ramette 2007)](#references). Differences between groups are assessed using a permutational analysis of variance (PERMANOVA) test. 
+
+<img src="MicrobIEM/man/09_Beta-diversity.png"/> 
+
+#### Taxonomic composition
+
+The taxonomic distribution of samples can be visualized for any selected number of the most abundant taxa per sub-group of samples or for all samples together and for all taxonomic levels available in the annotation provided in the feature table.
+
+<img src="MicrobIEM/man/10_Taxonomic-composition.png"/> 
+
+### Select samples of interest
+
+When exploring data, samples or groups of samples can be selected dynamically in the section “Sample selection”. All variables present in the Metadata sheet provided by the user are available for selection of subgroups. The updated analysis will only be performed after clicking "Update plot" in the respective analysis section.
+
+<img src="MicrobIEM/man/11_Sample-selection.png"/> 
+
+### Save your figures
+To save a figure as .png, hover over the plot in MicrobIEM and click "Download plot as png".
+
+<img src="MicrobIEM/man/12_Save-figures.png"/> 
+
+## 4. Advanced users: stand-alone MicrobIEM decontamination algorithm
+Advanced users who want to run the MicrobIEM decontamination algorithm directly in R can download the [MicrobIEM_decontamination.R function](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM_decontamination.R) and check out the [example code](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM_decontamination_example.R).
+
+## 5. Cite this tool
 
 If you use this tool, please cite it as:
 
 Hülpüsch C & Rauer L, Nussbaumer T, Schwierzeck V, Bhattacharyya M, Erhart V, Traidl-Hoffmann C, Reiger M & Neumann AU (2021). MicrobIEM - A user-friendly tool for quality control and interactive analysis of microbiome data. https://github.com/LuiseRauer/MicrobIEM
 
+## 6. References
+
+Eisenhofer R, Minich JJ, Marotz C, Cooper A, Knight R, Weyrich LS. Contamination in Low Microbial Biomass Microbiome Studies: Issues and Recommendations. Trends Microbiol 2019;27(2):105-17.  
+  
+Hornung BVH, Zwittink RD, Kuijper EJ. Issues and current standards of controls in microbiome research. FEMS Microbiology Ecology 2019;95(5).  
+  
+Karstens L, Asquith M, Davin S, Fair D, Gregory WT, Wolfe AJ, et al. Controlling for Contaminants in Low-Biomass 16S rRNA Gene Sequencing Experiments. mSystems 2019;4(4):e00290-19.  
+  
+Lagkouvardos I, Fischer S, Kumar N, Clavel T. Rhea: a transparent and modular R pipeline for microbial profiling based on 16S rRNA gene amplicons. PeerJ 2017;5:e2836.  
+  
+Ramette A. Multivariate analyses in microbial ecology. FEMS microbiology ecology 2007;62(2):142-60.  
+  
+Sanchez-Cid C, Tignat-Perrier R, Franqueville L, Delaurière L, Schagat T, Vogel TM. Sequencing Depth Has a Stronger Effect than DNA Extraction on Soil Bacterial Richness Discovery. Biomolecules 2022;12(3).  
+  
+Thukral A. A review of measurement of alpha diversity in biology. Agric Res J 2017;54(1):1-10.  
