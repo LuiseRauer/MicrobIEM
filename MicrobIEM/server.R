@@ -208,10 +208,14 @@ server <- function(input, output, session) {
                                    sample_types_allowed[4]), "Sample_ID"]
       reactives$featuredata_neg1 <- reactives$featuredata[, ID_NEG1, drop = FALSE]
       # Create span UI values and default value for NEG1
-      neg1_span_values <- seq(1, ncol(reactives$featuredata_neg1))
+      if (ncol(reactives$featuredata_neg1) > 0) {
+        neg1_span_values <- seq(1, ncol(reactives$featuredata_neg1))
+      } else { # Empty vector if no NEG1 controls are present
+        neg1_span_values <- c()
+      }
       reactives$neg1_span_steps <- setNames(
         c(0.0001, neg1_span_values/length(neg1_span_values)), 
-        nm = c("ignore", paste0(
+        nm = c("ignore", if(ncol(reactives$featuredata_neg1) > 0) paste0(
           round(neg1_span_values/length(neg1_span_values), 2), " (",
           neg1_span_values, "/", length(neg1_span_values), ")")))
       reactives$req_span_neg1 <- reactives$neg1_span_steps[1]
@@ -225,10 +229,14 @@ server <- function(input, output, session) {
                    length(ID_NEG1), " NEG1 controls, and ",
                    length(ID_NEG2), " NEG2 controls in the data."))
       # Create span UI values and default value for NEG2
-      neg2_span_values <- seq(1, ncol(reactives$featuredata_neg2))
+      if (ncol(reactives$featuredata_neg2) > 0) {
+        neg2_span_values <- seq(1, ncol(reactives$featuredata_neg2))
+      } else { # Empty vector if no NEG1 controls are present
+        neg2_span_values <- c()
+      }
       reactives$neg2_span_steps <- setNames(
         c(0.0001, neg2_span_values/length(neg2_span_values)), 
-        nm = c("ignore", paste0(
+        nm = c("ignore", if(ncol(reactives$featuredata_neg2) > 0) paste0(
           round(neg2_span_values/length(neg2_span_values), 2), " (",
           neg2_span_values, "/", length(neg2_span_values), ")")))
       reactives$req_span_neg2 <- reactives$neg2_span_steps[1]
@@ -470,6 +478,9 @@ server <- function(input, output, session) {
                    Sys.time()))
       reactives$featuredata_6 <- reactives$featuredata_current
       reactives$metadata_6 <- reactives$metadata_current
+      # Replace "n.a." to NA in metafile for download to facilitate loading in R
+      reactives$metadata_download <- reactives$metadata_6
+      reactives$metadata_download[reactives$metadata_download == "n.a."] <- NA
       print(paste0("INFO - create final files for download - ", Sys.time()))
       
       # ------------------------------------------------------------------------
@@ -599,12 +610,27 @@ server <- function(input, output, session) {
     if(input$visualization_type == "Correlation of reads and features") {
       correlation_plot <- data.frame(
         Reads = colSums(reactives$featuredata_current),
-        Features = apply(reactives$featuredata_current, 2, function(x) sum(x > 0)))
+        Features = apply(reactives$featuredata_current, 2, function(x) sum(x > 0)),
+        Type = "SAMPLE")
+      correlation_plot_NEG1 <- data.frame(
+        Reads = colSums(reactives$featuredata_neg1),
+        Features = apply(reactives$featuredata_neg1, 2, function(x) sum(x > 0)),
+        Type = rep("NEG1", ncol(reactives$featuredata_neg1)))
+      correlation_plot_NEG2 <- data.frame(
+        Reads = colSums(reactives$featuredata_neg2),
+        Features = apply(reactives$featuredata_neg2, 2, function(x) sum(x > 0)),
+        Type = rep("NEG2", ncol(reactives$featuredata_neg2)))
+      correlation_plot <- do.call(
+        "rbind.data.frame", 
+        list(correlation_plot, correlation_plot_NEG1, correlation_plot_NEG2))
       output$plot <- renderPlotly({
-        ggplot(data = correlation_plot, aes(x = Reads, y = Features)) +
-          geom_point(aes(text = paste("Sample:", rownames(correlation_plot))),
-                     colour = "#2fa4e7") +
-          scale_x_log10() +
+        ggplot(data = correlation_plot, 
+               aes(x = Reads, y = Features, colour = Type)) +
+          geom_point(aes(text = paste("Sample:", rownames(correlation_plot)))) +
+          scale_colour_manual(
+            "Sample type", values = setNames(c("#2fa4e7", "#d05517", "#f1aa87"),
+                                             nm = c("SAMPLE", "NEG2", "NEG1"))) +
+          scale_x_log10() + scale_y_log10() +
           plot_theme
       })
     }
@@ -1405,7 +1431,7 @@ server <- function(input, output, session) {
              format(Sys.time(), "%Y_%m_%d"), ".txt")
     },
     content = function(file) {
-      write.table(reactives$metadata_6, file = file, row.names = FALSE, 
+      write.table(reactives$metadata_download, file = file, row.names = FALSE, 
                   sep = "\t", quote = FALSE)
     }
   )
