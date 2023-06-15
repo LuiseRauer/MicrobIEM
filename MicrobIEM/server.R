@@ -1011,13 +1011,19 @@ server <- function(input, output, session) {
           tabPanel(
             title = "Download",
             br(),
+            # Data format as .csv or .txt:
+            #h5(tags$b("Format:")),
+            radioButtons("download_format", label = "Format:",
+                         c("Tab separated .txt" = "tab",
+                           "Comma separated .csv" = "csv")),
+            br(),
             h5(tags$b("Final filtered data output:")),
             downloadButton("download_feature_abs", "Final feature file (counts)"),
             downloadButton("download_feature_rel", "Final feature file (rel. abundance)"),
             downloadButton("download_metafile", "Final metafile"),
             br(), br(),
             h5(tags$b("Final filter settings:")),
-            downloadButton("download_filtersettings", "Filter settings"),
+            downloadButton("download_filtersettings", "Filter settings (.txt)"),
             br(), br(),
             h5(tags$b("Files for quality control:")),
             downloadButton("download_contbasis", "Basis for contamination filtering"),
@@ -1455,33 +1461,40 @@ server <- function(input, output, session) {
   output$download_feature_abs <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Featuretable_abs_final_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(reactives$download_featuredata_abs, file = file, 
-                  row.names = FALSE, sep = "\t", quote = FALSE)
+                  row.names = FALSE, 
+                  sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   # Download final filtered feature table as relative abundances
   output$download_feature_rel <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Featuretable_rel_final_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(reactives$download_featuredata_rel, file = file, 
-                  row.names = FALSE, sep = "\t", quote = FALSE)
+                  row.names = FALSE, sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   # Download final metafile
   output$download_metafile <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Metatable_final_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(reactives$metadata_download, file = file, row.names = FALSE, 
-                  sep = "\t", quote = FALSE)
+                  sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   # ----------------------------------------------------------------------------
@@ -1505,34 +1518,40 @@ server <- function(input, output, session) {
   output$download_contbasis <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Contamination_filter_basis_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(data.frame(OTU_ID = rownames(reactives$filter_basis), 
                              reactives$filter_basis), file = file,
-                  row.names = FALSE, sep = "\t", quote = FALSE)
+                  row.names = FALSE, sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   # Download reduction of reads per feature by filter step
   output$download_redfeature <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Read_reduction_per_feature_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(reactives$download_reduction_per_feature, file = file,
-                  row.names = FALSE, sep = "\t", quote = FALSE)
+                  row.names = FALSE, sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   # Download reduction of reads per highest taxonomy by filter step 
   output$download_redtaxonomy <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Read_reduction_per_taxonomy_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(reactives$download_reduction_per_taxonomy, file = file, 
-        row.names = FALSE, sep = "\t", quote = FALSE)
+        row.names = FALSE, sep = if(input$download_format == "tab") "\t" else ",", 
+        quote = FALSE)
     }
   )
   
@@ -1543,25 +1562,29 @@ server <- function(input, output, session) {
   output$download_allalpha <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Alpha_diversity_values_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(data.frame(Sample_ID = rownames(reactives$alpha_diversity_data), 
                    reactives$alpha_diversity_data), file = file,
-        row.names = FALSE, sep = "\t", quote = FALSE)
+        row.names = FALSE, sep = if(input$download_format == "tab") "\t" else ",", 
+        quote = FALSE)
     }
   )
   # Save beta diversity values
   output$download_allbeta <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Beta_diversity_distance_matrix_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(data.frame(Sample_ID = rownames(reactives$distance_matrix), 
                              reactives$distance_matrix, check.names = FALSE), 
                   file = file, row.names = FALSE, col.names = TRUE, 
-                  sep = "\t", quote = FALSE)
+                  sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   
@@ -1576,13 +1599,15 @@ server <- function(input, output, session) {
         if(reactives$subvar_alpha != "ignore") {
           paste0(gsub("[^0-9a-zA-Z_-]", "", reactives$subvar_alpha), "_")
         },
-        format(Sys.time(), "%Y_%m_%d"), ".txt") # Date of download
+        format(Sys.time(), "%Y_%m_%d"), # Date of download
+        if(input$download_format == "tab") ".txt" else ".csv") 
     }, 
     content = function(file) {
       write.table(
         data.frame(Sample_ID = rownames(reactives$alpha_diversity_download),
                    reactives$alpha_diversity_download), 
-        file = file, sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
+        file = file, sep = if(input$download_format == "tab") "\t" else ",", 
+        dec = ".", quote = FALSE, row.names = FALSE)
     }
   )
 
@@ -1595,13 +1620,15 @@ server <- function(input, output, session) {
         "MicrobIEM_Beta_diversity_",
         substr(reactives$plot_beta, 6, 9), "_", # nMDS or PCoA
         gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_beta), "_", # Variable name
-        format(Sys.time(), "%Y_%m_%d"), ".txt") # Date of download
+        format(Sys.time(), "%Y_%m_%d"), # Date of download
+        if(input$download_format == "tab") ".txt" else ".csv") 
     },
     content = function(file) {
       write.table(
         data.frame(Sample_ID = rownames(reactives$beta_diversity_download),
                    reactives$beta_diversity_download), 
-        file = file, sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
+        file = file, sep = if(input$download_format == "tab") "\t" else ",", 
+        dec = ".", quote = FALSE, row.names = FALSE)
     }
   )
 
@@ -1614,12 +1641,14 @@ server <- function(input, output, session) {
         "MicrobIEM_Taxonomy_",
         reactives$taxonomy_level, "_", # Taxonomic level
         gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_taxonomy), "_", # Variable name
-        format(Sys.time(), "%Y_%m_%d"), ".txt") # Date of download
+        format(Sys.time(), "%Y_%m_%d"), # Date of download
+        if(input$download_format == "tab") ".txt" else ".csv") 
     },
     content = function(file) {
       write.table(
         select(reactives$taxonomy_download, -Row.names), 
-        file = file, sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
+        file = file, sep = if(input$download_format == "tab") "\t" else ",",
+        dec = ".", quote = FALSE, row.names = FALSE)
     }
   )
 }
