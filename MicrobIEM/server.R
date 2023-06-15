@@ -8,8 +8,8 @@
 # Install and load required packages 
 # ------------------------------------------------------------------------------
 # Install packages
-packages_server <- c("shinyjs", "DT", "plotly", "shinyWidgets",
-                     "dplyr", "reshape2", "ggplot2", "vegan")
+packages_server <- c("shinyjs", "DT", "plotly", "shinyWidgets", "tools",
+                     "dplyr", "reshape2", "ggplot2", "vegan", "reader")
 install.packages(setdiff(packages_server, rownames(installed.packages())))
 # Load packages
 library(shinyjs)
@@ -20,6 +20,8 @@ library(shinyWidgets)
 library(reshape2)
 library(plotly)
 library(DT)
+library(reader)
+library(tools)
 
 # ------------------------------------------------------------------------------
 # Define re-used parameters
@@ -79,6 +81,7 @@ server <- function(input, output, session) {
                               beta_diversity_analysis = FALSE)
   
   # Hide buttons and input fields defined in UI function
+  shinyjs::hide("q2_taxonomy")
   shinyjs::hide("visualization_type")
   shinyjs::hide("req_reads_per_sample")
   shinyjs::hide("req_reads_per_feature")
@@ -96,19 +99,23 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$metafile, {
     print(paste0("INFO - input in metafile - ", Sys.time()))
+    metadata_ext <- tools::file_ext(input$metafile$datapath) 
+    metadata_sep <- get.delim(input$metafile$datapath, n = 10, 
+                              delims = c("\t", "\t| +", " ", ",", ";"))
     # Check correct file extension
-    if (!(tools::file_ext(input$metafile$datapath) == "txt")) {
+    if (!(metadata_ext %in% c("csv", "tsv", "txt"))) {
       showModal(modalDialog(
-        title = "Error 1a", "Please choose a tab-separated txt file as meta table."))
+        title = "Error 1a", "Please choose a csv/tsv/txt file as meta table."))
     } else {
-      reactives$metadata <- read.csv(input$metafile$datapath, sep = "\t", 
-                                     header = TRUE, check.names = FALSE)
+      reactives$metadata <- read.delim(input$metafile$datapath, 
+                                       sep = metadata_sep, 
+                                       header = TRUE, check.names = FALSE)
       reactives$metadata[] <- lapply(reactives$metadata, as.character)
       colnames_md <- colnames(reactives$metadata)
       # Check for columns Sample_ID and Sample_type
       if (colnames_md[1] != "Sample_ID" || !("Sample_type" %in% colnames_md)) {
         showModal(modalDialog(
-          title = "Error 2", 
+          title = "Error 1b", 
           "Please provide a meta information table with the first column 
           'Sample_ID' and a column 'Sample_type' to define samples and controls."))
         reactives$metadata <- NA
@@ -118,7 +125,7 @@ server <- function(input, output, session) {
         if ((sum(sample_types_observed %in% sample_types_allowed) != 
              length(sample_types_observed))) {
           showModal(modalDialog(
-            title = "Error 3", 
+            title = "Error 1c", 
             paste0("Please use only the following labels to define samples and 
                    controls: ", 
                    paste(sample_types_allowed, collapse = ", "))))
@@ -136,19 +143,46 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$featurefile, {
     print(paste0("INFO - input in featurefile - ", Sys.time()))
+    featurefile_ext <- tools::file_ext(input$featurefile$datapath) 
+    if(featurefile_ext != "qza") {
+      featurefile_sep <- get.delim(input$featurefile$datapath, n = 10, 
+                                   delims = c("\t", "\t| +", " ", ",", ";"))
+      if(!featurefile_sep %in% c("\t", "\t| +", " ", ",")) {
+        showModal(modalDialog(
+          title = "Error 2a", "Please choose a tab-, comma-, or space-separated file."))
+      }
+    }
     # Check correct file extension
-    if (!(tools::file_ext(input$featurefile$datapath) == "txt")) {
+    if (!(featurefile_ext %in% c("csv", "tsv", "txt", "qza"))) {
       showModal(modalDialog(
-        title = "Error 1b", "Please choose a tab-separated txt file as feature table."))
+        title = "Error 2b", "Please choose a csv/tsv/txt/qza file as feature table."))
+    } else if (featurefile_ext == "qza" & is.null(input$q2_taxonomy)) {
+      showModal(modalDialog(
+        title = "Error 2c", "Please select the format 'QIIME2 (.qza)' and choose a qza QIIME2 taxonomy file first."))
     } else {
-      reactives$featuredata <- read.csv(input$featurefile$datapath, sep = "\t", 
-                                        header = TRUE, check.names = FALSE)
+      # Load txt feature file
+      if(featurefile_ext != "qza") {
+        reactives$featuredata <- read.delim(input$featurefile$datapath, 
+                                            sep = featurefile_sep, 
+                                            header = TRUE, check.names = FALSE)
+      } else {
+        # Load qiime2 feature file
+        reactives$featuredata <- 
+          as.data.frame(read_qza(input$featurefile$datapath)$data)
+        # Merge qiime2 feature file with qiime2 taxonomy file
+        reactives$featuredata <- merge(
+          reactives$featuredata,
+          read_qza(input$q2_taxonomy$datapath)$data[, c("Feature.ID", "Taxon")], 
+          by.x = 0, by.y = "Feature.ID")
+        colnames(reactives$featuredata)[1] <- "OTU_ID"
+        colnames(reactives$featuredata)[ncol(reactives$featuredata)] <- "Taxonomy"
+      }
       colnames_fd <- colnames(reactives$featuredata)
       # Check for columns OTU_ID and Taxonomy
       if(length(colnames_fd) < 3 || colnames_fd[1] != "OTU_ID" || 
          colnames_fd[length(colnames_fd)] != "Taxonomy") {
         showModal(modalDialog(
-          title = "Error 4", "Please provide a feature table with the first 
+          title = "Error 3", "Please provide a feature table with the first 
           column 'OTU_ID', at least one sample, and the last column 'Taxonomy'"))
         reactives$featuredata <- NA
       } else if (!is.na(reactives$featuredata) && !is.na(reactives$metadata)) {
@@ -286,7 +320,7 @@ server <- function(input, output, session) {
       shinyjs::show("next_button")
     } else {
       showModal(modalDialog(
-        title = "Error 5", "Sample IDs do not match between meta table and 
+        title = "Error 4", "Sample IDs do not match between meta table and 
         feature table."))
     }
   }
@@ -777,6 +811,17 @@ server <- function(input, output, session) {
   }
   
   # ----------------------------------------------------------------------------
+  # Offer taxonomy upload when choosing QIIME2 input
+  # ----------------------------------------------------------------------------
+  observe({
+    if(input$feature_format == "qiime2") {
+      shinyjs::show("q2_taxonomy")
+    } else {
+      shinyjs::hide("q2_taxonomy")
+    }
+  })
+  
+  # ----------------------------------------------------------------------------
   # Changed input in span filter
   # ----------------------------------------------------------------------------
   observeEvent(input$req_span_neg1, {
@@ -833,12 +878,16 @@ server <- function(input, output, session) {
     if(reactives$step_var == 1){
       shinyjs::enable("metafile")
       shinyjs::enable("featurefile")
+      shinyjs::enable("feature_format")
+      shinyjs::enable("q2_taxonomy")
       shinyjs::hide("visualization_type")
       shinyjs::hide("req_reads_per_sample")
     }
     if(reactives$step_var == 2){
       shinyjs::disable("metafile")
       shinyjs::disable("featurefile")
+      shinyjs::disable("feature_format")
+      shinyjs::disable("q2_taxonomy")
       shinyjs::show("visualization_type")
       shinyjs::show("req_reads_per_sample") 
       shinyjs::enable("req_reads_per_sample") 
