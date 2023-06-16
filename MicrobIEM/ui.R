@@ -37,10 +37,12 @@ ui <- fluidPage(
   tags$div("Need help? Check out the ", 
            a("documentation", target = "_blank", 
              href = "https://github.com/LuiseRauer/MicrobIEM"), 
-           " and the ", 
-           a("example dataset", target = "_blank", 
+           " and the example dataset on ", 
+           a("Github", target = "_blank", 
              href = "https://github.com/LuiseRauer/MicrobIEM/tree/main/MicrobIEM/test-data"), 
-           "on Github."), 
+           "or the ",
+           a("OSF", target = "_blank", href = "https://osf.io/xvbef/"),
+           "platform."), 
   br(),
   useShinyjs(), # Use shinyjs package 
   
