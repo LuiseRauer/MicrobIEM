@@ -11,6 +11,13 @@
 packages_server <- c("shinyjs", "DT", "plotly", "shinyWidgets", "tools",
                      "dplyr", "reshape2", "ggplot2", "vegan", "reader")
 install.packages(setdiff(packages_server, rownames(installed.packages())))
+
+# Install qiime2R package from Github
+if (!"qiime2R" %in% rownames(installed.packages())) {
+  install.packages("remotes")
+  remotes::install_github("jbisanz/qiime2R")
+}
+
 # Load packages
 library(shinyjs)
 library(ggplot2)
@@ -22,6 +29,7 @@ library(plotly)
 library(DT)
 library(reader)
 library(tools)
+library(qiime2R)
 
 # ------------------------------------------------------------------------------
 # Define re-used parameters
@@ -144,14 +152,6 @@ server <- function(input, output, session) {
   observeEvent(input$featurefile, {
     print(paste0("INFO - input in featurefile - ", Sys.time()))
     featurefile_ext <- tools::file_ext(input$featurefile$datapath) 
-    if(featurefile_ext != "qza") {
-      featurefile_sep <- get.delim(input$featurefile$datapath, n = 10, 
-                                   delims = c("\t", "\t| +", " ", ",", ";"))
-      if(!featurefile_sep %in% c("\t", "\t| +", " ", ",")) {
-        showModal(modalDialog(
-          title = "Error 2a", "Please choose a tab-, comma-, or space-separated file."))
-      }
-    }
     # Check correct file extension
     if (!(featurefile_ext %in% c("csv", "tsv", "txt", "qza"))) {
       showModal(modalDialog(
@@ -159,24 +159,31 @@ server <- function(input, output, session) {
     } else if (featurefile_ext == "qza" & is.null(input$q2_taxonomy)) {
       showModal(modalDialog(
         title = "Error 2c", "Please select the format 'QIIME2 (.qza)' and choose a qza QIIME2 taxonomy file first."))
-    } else {
-      # Load txt feature file
-      if(featurefile_ext != "qza") {
+    } else if (featurefile_ext != "qza") {
+      # Load csv/tsv/txt feature file
+      featurefile_sep <- get.delim(input$featurefile$datapath, n = 10, 
+                                   delims = c("\t", "\t| +", " ", ",", ";"))
+      if(!featurefile_sep %in% c("\t", "\t| +", " ", ",")) {
+        showModal(modalDialog(
+          title = "Error 2a", "Please choose a tab-, comma-, or space-separated file."))
+      } else {
         reactives$featuredata <- read.delim(input$featurefile$datapath, 
                                             sep = featurefile_sep, 
                                             header = TRUE, check.names = FALSE)
-      } else {
-        # Load qiime2 feature file
-        reactives$featuredata <- 
-          as.data.frame(read_qza(input$featurefile$datapath)$data)
-        # Merge qiime2 feature file with qiime2 taxonomy file
-        reactives$featuredata <- merge(
-          reactives$featuredata,
-          read_qza(input$q2_taxonomy$datapath)$data[, c("Feature.ID", "Taxon")], 
-          by.x = 0, by.y = "Feature.ID")
-        colnames(reactives$featuredata)[1] <- "OTU_ID"
-        colnames(reactives$featuredata)[ncol(reactives$featuredata)] <- "Taxonomy"
       }
+    } else {
+      # Load qiime2 feature file
+      reactives$featuredata <- 
+        as.data.frame(read_qza(input$featurefile$datapath)$data)
+      # Merge qiime2 feature file with qiime2 taxonomy file
+      reactives$featuredata <- merge(
+        reactives$featuredata,
+        read_qza(input$q2_taxonomy$datapath)$data[, c("Feature.ID", "Taxon")], 
+        by.x = 0, by.y = "Feature.ID")
+      colnames(reactives$featuredata)[1] <- "OTU_ID"
+      colnames(reactives$featuredata)[ncol(reactives$featuredata)] <- "Taxonomy"
+    }
+    if(!is.na(reactives$featuredata) && !is.na(reactives$metadata)) {
       colnames_fd <- colnames(reactives$featuredata)
       # Check for columns OTU_ID and Taxonomy
       if(length(colnames_fd) < 3 || colnames_fd[1] != "OTU_ID" || 
@@ -185,7 +192,7 @@ server <- function(input, output, session) {
           title = "Error 3", "Please provide a feature table with the first 
           column 'OTU_ID', at least one sample, and the last column 'Taxonomy'"))
         reactives$featuredata <- NA
-      } else if (!is.na(reactives$featuredata) && !is.na(reactives$metadata)) {
+      } else {
         # If everything is correct, start the file_open_success function
         withProgress(message = "Data upload", file_open_success())
       }
