@@ -79,10 +79,10 @@ When you start MicrobIEM for the first time, this step may take some minutes bec
 ## 3. Usage
 
 ### Prepare your data
-MicrobIEM requires two files as input data: a feature file and a meta file. The two files need to be in a specific format. You can see an example of the required formats in the folder /MicrobIEM-main/MicrobIEM/Test-Data ([here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data)) on Github .
+MicrobIEM requires two files as input data: a feature file and a meta file. The two files can be formatted in a wide range of data types (see below). You can see an example of the required format in the folder /MicrobIEM-main/MicrobIEM/Test-Data ([here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data)) on Github. You can also directly download the test data in .txt format from the [OSF platform](https://osf.io/xvbef/).
 
 #### Featurefile
-The feature file can be an OTU table or an ASV table, and contains sequenced read counts for each sample. It should be a tab-, comma-, or space-separated .csv/.tsv/.txt file. The first column must be called "OTU_ID" and must contain unique names of features. The next columns start with the name of each sample. The last column must be called "Taxonomy" and contain information on taxonomic classification, with taxonomic levels separated by semicolon. You can see an example of a correctly formatted feature file  [here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data/MicrobIEM_test-data_featurefile.txt). 
+The feature file can be an OTU table or an ASV table, and contains sequenced read counts for each sample. It should be a tab-, comma-, or space-separated .csv/.tsv/.txt file. The first column must be called "OTU_ID" and must contain unique names of features. The next columns start with the name of each sample. The last column must be called "Taxonomy" and contain information on taxonomic classification, with taxonomic levels separated by semicolon. You can see an example of a correctly formatted feature file  [here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data/MicrobIEM_test-data_featurefile.txt) or download it directly from the [OSF platform](https://osf.io/5w4ve). 
 
 <img src="MicrobIEM/man/03_Featurefile.png"/> 
 
@@ -93,7 +93,7 @@ The metafile contains additional information on each sample. It should be a tab-
 - "NEG1" or "NEG2" for up to 2 different types of negative controls
 - "POS1" for positive controls
 
-You can see an example of a correctly formatted metafile  [here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data/MicrobIEM_test-data_metafile.txt).
+You can see an example of a correctly formatted metafile  [here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data/MicrobIEM_test-data_metafile.txt) or download it directly from the [OSF platform](https://osf.io/fjbd2).
 
 <img src="MicrobIEM/man/04_Metafile.png"/> 
 
