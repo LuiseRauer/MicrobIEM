@@ -8,15 +8,10 @@
 # Install and load required packages 
 # ------------------------------------------------------------------------------
 # Install packages
-packages_server <- c("shinyjs", "DT", "plotly", "shinyWidgets", "tools",
-                     "dplyr", "reshape2", "ggplot2", "vegan", "reader")
+packages_server <- c("shinyjs", "DT", "plotly", "shinyWidgets",
+                     "dplyr", "reshape2", "ggplot2", "vegan", "reader",
+                     "devtools")
 install.packages(setdiff(packages_server, rownames(installed.packages())))
-
-# Install qiime2R package from Github
-if (!"qiime2R" %in% rownames(installed.packages())) {
-  install.packages("remotes")
-  remotes::install_github("jbisanz/qiime2R")
-}
 
 # Load packages
 library(shinyjs)
@@ -27,8 +22,18 @@ library(shinyWidgets)
 library(reshape2)
 library(plotly)
 library(DT)
-library(reader)
-library(tools)
+library(reader) # get.delim
+
+# Install qiime2R package from Github
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+library(BiocManager)
+options(repos = BiocManager::repositories())
+
+if (!"qiime2R" %in% rownames(installed.packages())) {
+  library("devtools")
+  devtools::install_github("jbisanz/qiime2R")
+}
 library(qiime2R)
 
 # ------------------------------------------------------------------------------
@@ -138,7 +143,8 @@ server <- function(input, output, session) {
                    controls: ", 
                    paste(sample_types_allowed, collapse = ", "))))
           reactives$metadata <- NA
-        } else if (!is.na(reactives$featuredata) && !is.na(reactives$metadata)) {
+        } else if (length(unlist(reactives$featuredata)) != 1 && 
+                   length(unlist(reactives$metadata)) != 1) {
           # If everything is correct, start the file_open_success function
           withProgress(message = "Data upload", file_open_success())
         }
@@ -183,7 +189,11 @@ server <- function(input, output, session) {
       colnames(reactives$featuredata)[1] <- "OTU_ID"
       colnames(reactives$featuredata)[ncol(reactives$featuredata)] <- "Taxonomy"
     }
-    if(!is.na(reactives$featuredata) && !is.na(reactives$metadata)) {
+    print(length(unlist(reactives$featuredata)))
+    print(length(unlist(reactives$metadata)))
+    #print(length(unlist(reactives$featuredata)) && length(unlist(reactives$metadata)))
+    if(length(unlist(reactives$featuredata)) != 1 && 
+       length(unlist(reactives$metadata)) != 1) {
       colnames_fd <- colnames(reactives$featuredata)
       # Check for columns OTU_ID and Taxonomy
       if(length(colnames_fd) < 3 || colnames_fd[1] != "OTU_ID" || 
