@@ -1199,7 +1199,8 @@ server <- function(input, output, session) {
       theme(strip.text.x = element_text(size = 8)) +
       plot_theme +
       theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
-            axis.title = element_blank()) +
+            axis.title = element_blank(),
+            panel.spacing.y = unit(0.5, "lines")) +
       scale_colour_manual(reactives$metavar_alpha, values = theme_colours) +
       scale_fill_manual(reactives$metavar_alpha, values = alpha(theme_colours, 0.5))
     # Build facets based on selected number of variables and scaling

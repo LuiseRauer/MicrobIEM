@@ -154,7 +154,9 @@ The final filtered feature table can be explored and visualized with the most co
 
 #### Alpha diversity
 Within-sample alpha diversity can be estimated by two contrasting components: richness, the number of taxa present, and evenness, the uniformity of taxa distributions.  
-In practice, alpha diversity is frequently reported by “mixed” measures of alpha diversity – such as the commonly used Shannon or Simpson index – which cover the two components in different functions. MicrobIEM provides alpha diversity analyses with pure Richness, pure Evenness, and the mixed measures Shannon, Simpson, and Inverse Simpson diversity index [(Thukral 2017)](#references). Differences in alpha diversity between groups are estimated by a Kruskal-Wallis test. 
+In practice, alpha diversity is frequently reported by “mixed” measures of alpha diversity – such as the commonly used Shannon or Simpson index – which cover the two components in different functions. MicrobIEM provides alpha diversity analyses with pure Richness, pure Evenness, and the mixed measures Shannon, Simpson, and Inverse Simpson diversity index [(Thukral 2017)](#references). Differences in alpha diversity between groups are estimated by a Kruskal-Wallis test.  
+MicrobIEM offers alpha diversity analyses for one metainformation variable, and one additional variable for subgroup analysis. While in principle every variable given in the metadata can be selected, we strongly recommend using only categorical or nominal variables for alpha diversity analyses. In order to create aesthetic alpha diversity figures with MicrobIEM, we also recommend using only variables with maximum eight different values for the metainformation variable, and only variables with maximum three different values for the subgroup analysis.  
+If you are specifically interested in, e.g., a subgroup analysis of variables with more than three values, we recommend selecting only one subgroup at a time in the sample selection tab and repeating the analysis for every subgroup.
 
 <img src="MicrobIEM/man/08_Alpha-diversity.png"/> 
 
