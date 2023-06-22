@@ -1,6 +1,6 @@
 # MicrobIEM
 
-MicrobIEM is a user-friendly tool for quality control, contaminant removal, and interactive analysis of microbiome data. Data of a microbiome study are loaded via the graphical user interface. For each step in quality control, interactive visualisations enable the users to explore their samples and define thresholds for filtering the data. The final data set can then be further investigated in MicrobIEM with statistical analysis common in microbiome research. Raw data, figures and corresponding p-values can be downloaded in the end. MicrobIEM is a fast tool that allows the user to curate and explore microbiome data without any knowledge in coding.
+MicrobIEM is a user-friendly tool for quality control, contaminant removal, and interactive analysis of microbiome data. Data from a microbiome study can be loaded via the graphical user interface. For each step in quality control, interactive visualizations enable the users to explore their samples and define thresholds for filtering the data. The user can then further investigate the final data set in MicrobIEM with basic statistical analysis common in microbiome research. Raw data, figures, and corresponding p-values can be downloaded at the end. MicrobIEM is a fast tool allowing users to curate and explore microbiome data without any coding knowledge.
 
 <img src="MicrobIEM/man/01_Correlation-reads-features.png"/> 
 
@@ -46,9 +46,12 @@ Available statistical analyses:
 
 ## 2. Installation 
 
-MicrobIEM can be run in two ways - through any web browser without any installation, or through RStudio after installing R and RStudio.
+MicrobIEM can be run in two ways:  
 
-### Recommended: Running MicrobIEM through a webbrowser
+- Through any web browser without any installation,  
+- Through RStudio after installing R and RStudio.  
+
+### Recommended: Running MicrobIEM through a web browser
 You can run MicrobIEM directly in your web browser without any installation: https://env-med.shinyapps.io/microbiem/
 
 ### Running MicrobIEM through RStudio
@@ -59,7 +62,7 @@ Download and install the software package R from the [R project website](https:/
 Download and install RStudio, an integrated development environment (IDE) for R, from the [RStudio website](https://rstudio.com/products/rstudio/download/).
 
 #### Install Shiny
-Once R and RStudio are properly installed, open RStudio and type or copy the following command in the console:
+Once you have installed R and RStudio, open RStudio and type or copy the following command in the console:
 ``` r
 install.packages("shiny")
 ```
@@ -68,10 +71,10 @@ Pressing enter starts the installation.
 #### Download MicrobIEM
 Download MicrobIEM and save and unzip the folder on your machine. 
 
-You can download MicrobIEM by clicking the green "Code" button in the top right of this repository and select "Download ZIP".  
+You can download MicrobIEM by clicking the green "Code" button in this repository's the top right and selecting "Download ZIP".  
 
 #### Start the tool
-In your unzipped MicrobIEM folder, do a right-click on the file "server". Click "Open with..." and select RStudio. In RStudio, press the "Run App" button in the upper middle to start MicrobIEM.  
+In your unzipped MicrobIEM folder, do right-click on the file "server". Click "Open with..." and select RStudio. In RStudio, press the "Run App" button in the upper middle to start MicrobIEM.  
 When you start MicrobIEM for the first time, this step may take some minutes because additional packages may need to be installed.
 
 <img src="MicrobIEM/man/02_Start-MicrobIEM.png"/> 
@@ -79,10 +82,10 @@ When you start MicrobIEM for the first time, this step may take some minutes bec
 ## 3. Usage
 
 ### Prepare your data
-MicrobIEM requires two files as input data: a feature file and a meta file. The two files can be formatted in a wide range of data types (see below). You can see an example of the required format in the folder /MicrobIEM-main/MicrobIEM/Test-Data ([here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data)) on Github. You can also directly download the test data in .txt format from the [OSF platform](https://osf.io/xvbef/).
+MicrobIEM requires two files as input data: a feature file and a metafile. The two files can be formatted in various data types (see below). You can see an example of the required format in the folder /MicrobIEM-main/MicrobIEM/Test-Data ([here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data)) on Github. You can also download the test data in .txt format from the [OSF platform](https://osf.io/xvbef/).
 
 #### Featurefile
-The feature file can be an OTU table or an ASV table, and contains sequenced read counts for each sample. It should be a tab-, comma-, or space-separated .csv/.tsv/.txt file. The first column must be called "OTU_ID" and must contain unique names of features. The next columns start with the name of each sample. The last column must be called "Taxonomy" and contain information on taxonomic classification, with taxonomic levels separated by semicolon. You can see an example of a correctly formatted feature file  [here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data/MicrobIEM_test-data_featurefile.txt) or download it directly from the [OSF platform](https://osf.io/5w4ve). 
+The feature file can be an OTU table or an ASV table and contains sequenced read counts for each sample. It should be a tab-, comma-, or space-separated .csv/.tsv/.txt file. The first column must be called "OTU_ID" and contain unique names of features. The following columns start with the name of each sample. The last column must be called "Taxonomy" and contain information on taxonomic classification, with taxonomic levels separated by semicolons. You can see an example of a correctly formatted feature file  [here](https://github.com/LuiseRauer/MicrobIEM/blob/main/MicrobIEM/test-data/MicrobIEM_test-data_featurefile.txt) or download it directly from the [OSF platform](https://osf.io/5w4ve). 
 
 <img src="MicrobIEM/man/03_Featurefile.png"/> 
 
@@ -97,7 +100,7 @@ You can see an example of a correctly formatted metafile  [here](https://github.
 
 <img src="MicrobIEM/man/04_Metafile.png"/> 
 
-Typical negative controls are pipeline negative controls (here: NEG2), which gather contaminants over the complete data generation pipeline, and PCR controls (here: NEG1), which are added prior to the PCR amplification [(Hornung, Zwittink, and Kuiper 2019)](#references).
+Typical negative controls are pipeline negative controls (here: NEG2), which gather contaminants over the complete data generation pipeline, and PCR controls (here: NEG1), which are added before the PCR amplification [(Hornung, Zwittink, and Kuiper 2019)](#references).
 
 #### Input from QIIME2 and taxonomy file
 MicrobIEM also offers the possibility to upload files from QIIME2. Therefore, MicrobIEM requires a feature file and a taxonomy file in .qza format, as provided by QIIME2. The metafile still needs to be prepared by the user in the format described above.
@@ -108,43 +111,43 @@ MicrobIEM also offers the possibility to upload files from QIIME2. Therefore, Mi
 
 Several optional steps for quality control are available in MicrobIEM: 
 
--	Sample filter: Exclusion of samples with low total reads, i.e. low sequencing depth 
+-	Sample filter: Exclusion of samples with low total reads, i.e., low sequencing depth 
 -	Feature filter: Exclusion of features (ASVs/OTUs) with low abundance, available as:
-    - Exclusion of features with low absolute abundance, i.e. low number of reads (e.g. singletons)
-    -	Exclusion of features with low relative abundance
+    - Exclusion of features with low absolute abundance, i.e., low number of reads (e.g., singletons)
+    -	Exclusion of features with a low relative abundance
 -	Contamination filter: Exclusion of contaminant features (ASVs/OTUs) based on negative controls
 
 To visualize the effect of each filter setting (x~1~-x~5~), several interactive plots are provided in MicrobIEM:
 
 -	Correlation of reads and features: to check for sufficient sequencing depth per sample
--	Change in feature abundance: to check the number of reads per feature before and after application of filter settings
+-	Change in feature abundance: to check the number of reads per feature before and after the application of filter settings
 -	Contamination removal – NEG1 based: to check which features present in the NEG1 control are removed
 -	Contamination removal – NEG2 based: to check which features present in the NEG2 control are removed
 -	Reduction of total reads per step: to check the impact of each filtering step on the data set
 
-The available quality control steps in MicrobIEM can be either used as described, or skipped (partially or altogether) to proceed directly to microbiome data analysis.  
-To apply new settings and explore the effect on the interactive plots in a specific step, press “Update plot”. When a setting has been chosen and you would like to proceed to the next step, press “Next”. To re-adjust settings in a previous step, press “Back”.
+The available quality control steps in MicrobIEM can be either used as described or skipped (partially or altogether) to proceed directly to microbiome data analysis.  
+To apply new settings and explore the effect on the interactive plots in a specific step, press "Update plot". When you decide on a setting and would like to proceed to the next step, press "Next". To re-adjust settings in a previous step, press "Back".
 
 #### Sample filter
-Low sequencing depth – i.e. low number of reads per sample – is a hint towards experimental failure due to technical problems in sampling or amplification [(Lagkouvardos et al. 2017)](#references). Thus, those samples should be removed from the analysis. The sequencing depth varies between sequencing runs, therefore no general advice on a minimum sequencing depth can be given. However, the following parameters may be considered when excluding samples: the number of reads in the PCR control, and the distribution of reads and features over samples.  
-The PCR control (here: NEG1) should contain only a low number of reads. If PCR controls have similar levels of reads as the samples, this hints towards a contamination in the sequencing run or to a general failure of the experiment. As no bacteria are expected in the PCR control, one option is to exclude samples with a lower number of reads than in the PCR controls. MicrobIEM displays the number of reads and features in the plot “Correlation of reads and features” for each sample and NEG1 and NEG2 controls (as defined in metadata table). The pipeline control (here: NEG2) is more suitable for decontamination and may be neglected in the sample filter step. Depending on the sampled environment, pipeline controls may have similar numbers of reads as found in samples.  
-A second indicator for high quality of the sequencing run is the absence of a correlation between the number of reads (= sequencing depth) and the number of features (= richness), which can also be checked in MicrobIEM’s plot “Correlation of reads and features”. Sequencing depth strongly effects richness [(Sanchez-Cid et al. 2022)](#references), thus sequencing sufficiently deep should result in a read-independent number of features per sample. 
+Low sequencing depth – i.e., low number of reads per sample – is a hint towards experimental failure due to technical problems in sampling or amplification [(Lagkouvardos et al. 2017)](#references). Thus, those samples should be removed from the analysis. The sequencing depth varies between sequencing runs, therefore no general advice on a minimum sequencing depth can be given. However, the following parameters may be considered when excluding samples: the number of reads in the PCR control and the distribution of reads and features over samples.  
+The PCR control (here: NEG1) should contain only a low number of reads. When PCR controls have similar levels of reads as the samples, this hints towards contamination in the sequencing run or a general failure of the experiment. As no bacteria are expected in the PCR control, one option is to exclude samples with fewer reads than in the PCR controls. MicrobIEM displays the number of reads and features in the plot "Correlation of reads and features" for each sample and NEG1 and NEG2 controls (as defined in the metadata table). The pipeline control (here: NEG2) is more suitable for decontamination and may be neglected in the sample filter step. Depending on the sampled environment, pipeline controls may have similar numbers of reads as found in samples.  
+A second indicator for a high quality of the sequencing run is the absence of a correlation between the number of reads (= sequencing depth) and the number of features (= richness), which can also be checked in MicrobIEM’s plot "Correlation of reads and features". Sequencing depth strongly effects richness [(Sanchez-Cid et al. 2022)](#references); thus, sequencing sufficiently deep should result in a read-independent number of features per sample. 
 
 <img src="MicrobIEM/man/01_Correlation-reads-features.png"/> 
 
 #### Feature filter
-Features with a low maximum absolute abundance over all samples (e.g. singletons or doubletons) or with a low maximum relative abundance over all samples (equivalent to the Frequency filter) can be removed as they often represent e.g. spurious sequencing errors [(Reitmeier et al. 2021)](#references). The plot “Change in feature abundance” is suitable to check the feature abundance before and after application of filter settings.
+Features with a low maximum absolute abundance over all samples (e.g., singletons or doubletons) or with a low maximum relative abundance over all samples (equivalent to the Frequency filter) can be removed as they may represent spurious sequencing errors [(Reitmeier et al. 2021)](#references). The plot "Change in feature abundance" is suitable for checking the feature abundance before and after applying filter settings.
 
 #### Contamination filter
-In MicrobIEM, contaminant removal is based on negative controls. As identifying contaminant features solely by their presence in negative controls is not recommended [(Karstens et al. 2019)](#references), two new concepts were implemented in MicrobIEM: 1) the ratio of the mean relative abundance of a sequence in negative controls versus in environmental samples, since a “systematic” contaminant (i.e. not sporadic, originating from e.g. lab consumables) should appear in rather high relative abundance in the expectably empty negative controls, and 2) a span threshold measuring the proportion of negative control samples contaminated with this sequence, since “systematic” contaminants should not appear only sporadically in a small fraction of negative controls.  
-These contamination filters (span and ratio) can be applied independently for two types of controls (NEG1 and NEG2, e.g. PCR and Pipeline negative control). We recommend to use the pipeline negative controls for contaminant removal, since contaminants over all steps from sampling to sequencing should accumulate in these controls.  
-The interactive “Contamination removal plots” are suitable to check which features occur in the respective negative controls. Bubble size indicates the mean relative abundance per feature in samples, and colors indicate whether these features are kept or removed by the current settings. Hovering over the bubbles give further information on each feature, e.g. about its taxonomic annotation to the level provided. The taxonomic annotation per feature can be further compared to typical contaminants described in literature, e.g. as can be found in [(Eisenhofer et al. 2019)](#references). 
+In MicrobIEM, contaminant removal is based on negative controls. As identifying contaminant features solely by their presence in negative controls is not recommended [(Karstens et al. 2019)](#references), we implemented two new concepts in MicrobIEM: 1) the ratio of the mean relative abundance of a sequence in negative controls versus in environmental samples, since a "systematic" contaminant (i.e., not sporadic, e.g., originating from lab consumables) should appear in rather high relative abundance in the expectably empty negative controls, and 2) a span threshold measuring the proportion of negative control samples contaminated with this sequence, since "systematic" contaminants should not appear only sporadically in a small fraction of negative controls.  
+These contamination filters (span and ratio) can be applied independently for two types of controls (NEG1 and NEG2, e.g., PCR and Pipeline negative control). We recommend using the pipeline negative controls for contaminant removal since contaminants from all steps from sampling to sequencing should accumulate in these controls.  
+The interactive "Contamination removal plots" are suitable for checking which features occur in the respective negative controls. Bubble size indicates the mean relative abundance per feature in samples, and colors indicate whether these features are kept or removed by the current settings. Hovering over the bubbles gives further information on each feature, e.g., about its taxonomic annotation to the level provided. The taxonomic annotation per feature can be further compared to typical contaminants described in the literature, e.g., as can be found in [(Eisenhofer et al. 2019)](#references). 
 
 <img src="MicrobIEM/man/06_Contaminant-removal.png"/> 
 
 ### Save your results
 
-After quality control has been performed successfully, the user proceeds to data analysis. Before analysing your data, we recommend downloading MicrobIEM's files from the "Download" section to your computer. You can select between tab-separated .txt files and comma-separated .csv files.
+After quality control has been performed successfully, the user proceeds to data analysis. Before analyzing your data, we recommend downloading MicrobIEM's files from the "Download" section to your computer. You can select between tab-separated .txt files and comma-separated .csv files.
 
 <img src="MicrobIEM/man/07_Download-files.png"/> 
 
@@ -154,26 +157,26 @@ The final filtered feature table can be explored and visualized with the most co
 
 #### Alpha diversity
 Within-sample alpha diversity can be estimated by two contrasting components: richness, the number of taxa present, and evenness, the uniformity of taxa distributions.  
-In practice, alpha diversity is frequently reported by “mixed” measures of alpha diversity – such as the commonly used Shannon or Simpson index – which cover the two components in different functions. MicrobIEM provides alpha diversity analyses with pure Richness, pure Evenness, and the mixed measures Shannon, Simpson, and Inverse Simpson diversity index [(Thukral 2017)](#references). Differences in alpha diversity between groups are estimated by a Kruskal-Wallis test.  
-MicrobIEM offers alpha diversity analyses for one metainformation variable, and one additional variable for subgroup analysis. While in principle every variable given in the metadata can be selected, we strongly recommend using only categorical or nominal variables for alpha diversity analyses. In order to create aesthetic alpha diversity figures with MicrobIEM, we also recommend using only variables with maximum eight different values for the metainformation variable, and only variables with maximum three different values for the subgroup analysis.  
-If you are specifically interested in, e.g., a subgroup analysis of variables with more than three values, we recommend selecting only one subgroup at a time in the sample selection tab and repeating the analysis for every subgroup.
+In practice, alpha diversity is frequently reported by "mixed" measures of alpha diversity – such as the commonly used Shannon or Simpson index – which cover the two components in different functions. MicrobIEM provides alpha diversity analyses with pure Richness, pure Evenness, and the mixed measures Shannon, Simpson, and Inverse Simpson diversity index [(Thukral 2017)](#references). Differences in alpha diversity between groups are estimated by a Kruskal-Wallis test.  
+MicrobIEM offers alpha diversity analyses for one metainformation variable and one additional variable for subgroup analysis. While every variable given in the metadata can be selected in principle, we recommend using only categorical or nominal variables for alpha diversity analyses. To create aesthetic alpha diversity figures with MicrobIEM, we also recommend using only variables with a maximum of eight different values for the metainformation variable and only variables with a maximum of three different values for the subgroup analysis.  
+When you are specifically interested in, e.g., a subgroup analysis of variables with more than three values, we recommend selecting only one subgroup at a time in the sample selection tab and repeating the analysis for every subgroup.
 
 <img src="MicrobIEM/man/08_Alpha-diversity.png"/> 
 
 #### Beta diversity
-Beta diversity in MicrobIEM is estimated by Bray-Curtis dissimilarity between samples and is visualized by Principal Coordinates Analysis (PCoA) or non-metric multidimensional scaling (nMDS) [(Ramette 2007)](#references). Differences between groups are assessed using a permutational analysis of variance (PERMANOVA) test. 
+Beta diversity in MicrobIEM is estimated by Bray-Curtis dissimilarity between samples. It can be visualized by Principal Coordinates Analysis (PCoA) or non-metric multidimensional scaling (nMDS) [(Ramette 2007)](#references). Differences between groups are assessed using a permutational analysis of variance (PERMANOVA) test. 
 
 <img src="MicrobIEM/man/09_Beta-diversity.png"/> 
 
 #### Taxonomic composition
 
-The taxonomic distribution of samples can be visualized for any selected number of the most abundant taxa per sub-group of samples or for all samples together and for all taxonomic levels available in the annotation provided in the feature table.
+The taxonomic distribution of samples can be visualized for any selected number of the most abundant taxa per sub-group of samples or all samples together and for all taxonomic levels available in the annotation provided in the feature table.
 
 <img src="MicrobIEM/man/10_Taxonomic-composition.png"/> 
 
 ### Select samples of interest
 
-When exploring data, samples or groups of samples can be selected dynamically in the section “Sample selection”. All variables present in the Metadata sheet provided by the user are available for selection of subgroups. The updated analysis will only be performed after clicking "Update plot" in the respective analysis section.
+When exploring data, samples or groups of samples can be selected dynamically in the section "Sample selection". All variables in the Metadata sheet provided by the user are available for the selection of subgroups. The updated analysis will only be performed after clicking "Update plot" in the respective analysis section.
 
 <img src="MicrobIEM/man/11_Sample-selection.png"/> 
 
