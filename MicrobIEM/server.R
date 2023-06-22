@@ -9,8 +9,10 @@
 # ------------------------------------------------------------------------------
 # Install packages
 packages_server <- c("shinyjs", "DT", "plotly", "shinyWidgets",
-                     "dplyr", "reshape2", "ggplot2", "vegan")
+                     "dplyr", "reshape2", "ggplot2", "vegan", "reader",
+                     "devtools")
 install.packages(setdiff(packages_server, rownames(installed.packages())))
+
 # Load packages
 library(shinyjs)
 library(ggplot2)
@@ -20,6 +22,19 @@ library(shinyWidgets)
 library(reshape2)
 library(plotly)
 library(DT)
+library(reader) # get.delim
+
+# Install qiime2R package from Github
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+library(BiocManager)
+options(repos = BiocManager::repositories())
+
+if (!"qiime2R" %in% rownames(installed.packages())) {
+  library("devtools")
+  devtools::install_github("jbisanz/qiime2R")
+}
+library(qiime2R)
 
 # ------------------------------------------------------------------------------
 # Define re-used parameters
@@ -79,6 +94,7 @@ server <- function(input, output, session) {
                               beta_diversity_analysis = FALSE)
   
   # Hide buttons and input fields defined in UI function
+  shinyjs::hide("q2_taxonomy")
   shinyjs::hide("visualization_type")
   shinyjs::hide("req_reads_per_sample")
   shinyjs::hide("req_reads_per_feature")
@@ -96,19 +112,23 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$metafile, {
     print(paste0("INFO - input in metafile - ", Sys.time()))
+    metadata_ext <- tools::file_ext(input$metafile$datapath) 
+    metadata_sep <- get.delim(input$metafile$datapath, n = 10, 
+                              delims = c("\t", "\t| +", " ", ",", ";"))
     # Check correct file extension
-    if (!(tools::file_ext(input$metafile$datapath) == "txt")) {
+    if (!(metadata_ext %in% c("csv", "tsv", "txt"))) {
       showModal(modalDialog(
-        title = "Error 1a", "Please choose a tab-separated txt file as meta table."))
+        title = "Error 1a", "Please choose a csv/tsv/txt file as meta table."))
     } else {
-      reactives$metadata <- read.csv(input$metafile$datapath, sep = "\t", 
-                                     header = TRUE, check.names = FALSE)
+      reactives$metadata <- read.delim(input$metafile$datapath, 
+                                       sep = metadata_sep, 
+                                       header = TRUE, check.names = FALSE)
       reactives$metadata[] <- lapply(reactives$metadata, as.character)
       colnames_md <- colnames(reactives$metadata)
       # Check for columns Sample_ID and Sample_type
       if (colnames_md[1] != "Sample_ID" || !("Sample_type" %in% colnames_md)) {
         showModal(modalDialog(
-          title = "Error 2", 
+          title = "Error 1b", 
           "Please provide a meta information table with the first column 
           'Sample_ID' and a column 'Sample_type' to define samples and controls."))
         reactives$metadata <- NA
@@ -118,12 +138,13 @@ server <- function(input, output, session) {
         if ((sum(sample_types_observed %in% sample_types_allowed) != 
              length(sample_types_observed))) {
           showModal(modalDialog(
-            title = "Error 3", 
+            title = "Error 1c", 
             paste0("Please use only the following labels to define samples and 
                    controls: ", 
                    paste(sample_types_allowed, collapse = ", "))))
           reactives$metadata <- NA
-        } else if (!is.na(reactives$featuredata) && !is.na(reactives$metadata)) {
+        } else if (length(unlist(reactives$featuredata)) != 1 && 
+                   length(unlist(reactives$metadata)) != 1) {
           # If everything is correct, start the file_open_success function
           withProgress(message = "Data upload", file_open_success())
         }
@@ -136,22 +157,52 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$featurefile, {
     print(paste0("INFO - input in featurefile - ", Sys.time()))
+    featurefile_ext <- tools::file_ext(input$featurefile$datapath) 
     # Check correct file extension
-    if (!(tools::file_ext(input$featurefile$datapath) == "txt")) {
+    if (!(featurefile_ext %in% c("csv", "tsv", "txt", "qza"))) {
       showModal(modalDialog(
-        title = "Error 1b", "Please choose a tab-separated txt file as feature table."))
+        title = "Error 2b", "Please choose a csv/tsv/txt/qza file as feature table."))
+    } else if (featurefile_ext == "qza" & is.null(input$q2_taxonomy)) {
+      showModal(modalDialog(
+        title = "Error 2c", "Please select the format 'QIIME2 (.qza)' and choose a qza QIIME2 taxonomy file first."))
+    } else if (featurefile_ext != "qza") {
+      # Load csv/tsv/txt feature file
+      featurefile_sep <- get.delim(input$featurefile$datapath, n = 10, 
+                                   delims = c("\t", "\t| +", " ", ",", ";"))
+      if(!featurefile_sep %in% c("\t", "\t| +", " ", ",")) {
+        showModal(modalDialog(
+          title = "Error 2a", "Please choose a tab-, comma-, or space-separated file."))
+      } else {
+        reactives$featuredata <- read.delim(input$featurefile$datapath, 
+                                            sep = featurefile_sep, 
+                                            header = TRUE, check.names = FALSE)
+      }
     } else {
-      reactives$featuredata <- read.csv(input$featurefile$datapath, sep = "\t", 
-                                        header = TRUE, check.names = FALSE)
+      # Load qiime2 feature file
+      reactives$featuredata <- 
+        as.data.frame(read_qza(input$featurefile$datapath)$data)
+      # Merge qiime2 feature file with qiime2 taxonomy file
+      reactives$featuredata <- merge(
+        reactives$featuredata,
+        read_qza(input$q2_taxonomy$datapath)$data[, c("Feature.ID", "Taxon")], 
+        by.x = 0, by.y = "Feature.ID")
+      colnames(reactives$featuredata)[1] <- "OTU_ID"
+      colnames(reactives$featuredata)[ncol(reactives$featuredata)] <- "Taxonomy"
+    }
+    print(length(unlist(reactives$featuredata)))
+    print(length(unlist(reactives$metadata)))
+    #print(length(unlist(reactives$featuredata)) && length(unlist(reactives$metadata)))
+    if(length(unlist(reactives$featuredata)) != 1 && 
+       length(unlist(reactives$metadata)) != 1) {
       colnames_fd <- colnames(reactives$featuredata)
       # Check for columns OTU_ID and Taxonomy
       if(length(colnames_fd) < 3 || colnames_fd[1] != "OTU_ID" || 
          colnames_fd[length(colnames_fd)] != "Taxonomy") {
         showModal(modalDialog(
-          title = "Error 4", "Please provide a feature table with the first 
+          title = "Error 3", "Please provide a feature table with the first 
           column 'OTU_ID', at least one sample, and the last column 'Taxonomy'"))
         reactives$featuredata <- NA
-      } else if (!is.na(reactives$featuredata) && !is.na(reactives$metadata)) {
+      } else {
         # If everything is correct, start the file_open_success function
         withProgress(message = "Data upload", file_open_success())
       }
@@ -286,7 +337,7 @@ server <- function(input, output, session) {
       shinyjs::show("next_button")
     } else {
       showModal(modalDialog(
-        title = "Error 5", "Sample IDs do not match between meta table and 
+        title = "Error 4", "Sample IDs do not match between meta table and 
         feature table."))
     }
   }
@@ -777,6 +828,17 @@ server <- function(input, output, session) {
   }
   
   # ----------------------------------------------------------------------------
+  # Offer taxonomy upload when choosing QIIME2 input
+  # ----------------------------------------------------------------------------
+  observe({
+    if(input$feature_format == "qiime2") {
+      shinyjs::show("q2_taxonomy")
+    } else {
+      shinyjs::hide("q2_taxonomy")
+    }
+  })
+  
+  # ----------------------------------------------------------------------------
   # Changed input in span filter
   # ----------------------------------------------------------------------------
   observeEvent(input$req_span_neg1, {
@@ -833,12 +895,16 @@ server <- function(input, output, session) {
     if(reactives$step_var == 1){
       shinyjs::enable("metafile")
       shinyjs::enable("featurefile")
+      shinyjs::enable("feature_format")
+      shinyjs::enable("q2_taxonomy")
       shinyjs::hide("visualization_type")
       shinyjs::hide("req_reads_per_sample")
     }
     if(reactives$step_var == 2){
       shinyjs::disable("metafile")
       shinyjs::disable("featurefile")
+      shinyjs::disable("feature_format")
+      shinyjs::disable("q2_taxonomy")
       shinyjs::show("visualization_type")
       shinyjs::show("req_reads_per_sample") 
       shinyjs::enable("req_reads_per_sample") 
@@ -962,13 +1028,19 @@ server <- function(input, output, session) {
           tabPanel(
             title = "Download",
             br(),
+            # Data format as .csv or .txt:
+            #h5(tags$b("Format:")),
+            radioButtons("download_format", label = "Format:",
+                         c("Tab separated .txt" = "tab",
+                           "Comma separated .csv" = "csv")),
+            br(),
             h5(tags$b("Final filtered data output:")),
             downloadButton("download_feature_abs", "Final feature file (counts)"),
             downloadButton("download_feature_rel", "Final feature file (rel. abundance)"),
             downloadButton("download_metafile", "Final metafile"),
             br(), br(),
             h5(tags$b("Final filter settings:")),
-            downloadButton("download_filtersettings", "Filter settings"),
+            downloadButton("download_filtersettings", "Filter settings (.txt)"),
             br(), br(),
             h5(tags$b("Files for quality control:")),
             downloadButton("download_contbasis", "Basis for contamination filtering"),
@@ -1127,7 +1199,8 @@ server <- function(input, output, session) {
       theme(strip.text.x = element_text(size = 8)) +
       plot_theme +
       theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
-            axis.title = element_blank()) +
+            axis.title = element_blank(),
+            panel.spacing.y = unit(0.5, "lines")) +
       scale_colour_manual(reactives$metavar_alpha, values = theme_colours) +
       scale_fill_manual(reactives$metavar_alpha, values = alpha(theme_colours, 0.5))
     # Build facets based on selected number of variables and scaling
@@ -1406,33 +1479,40 @@ server <- function(input, output, session) {
   output$download_feature_abs <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Featuretable_abs_final_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(reactives$download_featuredata_abs, file = file, 
-                  row.names = FALSE, sep = "\t", quote = FALSE)
+                  row.names = FALSE, 
+                  sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   # Download final filtered feature table as relative abundances
   output$download_feature_rel <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Featuretable_rel_final_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(reactives$download_featuredata_rel, file = file, 
-                  row.names = FALSE, sep = "\t", quote = FALSE)
+                  row.names = FALSE, sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   # Download final metafile
   output$download_metafile <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Metatable_final_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(reactives$metadata_download, file = file, row.names = FALSE, 
-                  sep = "\t", quote = FALSE)
+                  sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   # ----------------------------------------------------------------------------
@@ -1456,34 +1536,40 @@ server <- function(input, output, session) {
   output$download_contbasis <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Contamination_filter_basis_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(data.frame(OTU_ID = rownames(reactives$filter_basis), 
                              reactives$filter_basis), file = file,
-                  row.names = FALSE, sep = "\t", quote = FALSE)
+                  row.names = FALSE, sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   # Download reduction of reads per feature by filter step
   output$download_redfeature <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Read_reduction_per_feature_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(reactives$download_reduction_per_feature, file = file,
-                  row.names = FALSE, sep = "\t", quote = FALSE)
+                  row.names = FALSE, sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   # Download reduction of reads per highest taxonomy by filter step 
   output$download_redtaxonomy <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Read_reduction_per_taxonomy_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(reactives$download_reduction_per_taxonomy, file = file, 
-        row.names = FALSE, sep = "\t", quote = FALSE)
+        row.names = FALSE, sep = if(input$download_format == "tab") "\t" else ",", 
+        quote = FALSE)
     }
   )
   
@@ -1494,25 +1580,29 @@ server <- function(input, output, session) {
   output$download_allalpha <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Alpha_diversity_values_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(data.frame(Sample_ID = rownames(reactives$alpha_diversity_data), 
                    reactives$alpha_diversity_data), file = file,
-        row.names = FALSE, sep = "\t", quote = FALSE)
+        row.names = FALSE, sep = if(input$download_format == "tab") "\t" else ",", 
+        quote = FALSE)
     }
   )
   # Save beta diversity values
   output$download_allbeta <- downloadHandler(
     filename = function() {
       paste0("MicrobIEM_Beta_diversity_distance_matrix_", 
-             format(Sys.time(), "%Y_%m_%d"), ".txt")
+             format(Sys.time(), "%Y_%m_%d"), 
+             if(input$download_format == "tab") ".txt" else ".csv")
     },
     content = function(file) {
       write.table(data.frame(Sample_ID = rownames(reactives$distance_matrix), 
                              reactives$distance_matrix, check.names = FALSE), 
                   file = file, row.names = FALSE, col.names = TRUE, 
-                  sep = "\t", quote = FALSE)
+                  sep = if(input$download_format == "tab") "\t" else ",", 
+                  quote = FALSE)
     }
   )
   
@@ -1527,13 +1617,15 @@ server <- function(input, output, session) {
         if(reactives$subvar_alpha != "ignore") {
           paste0(gsub("[^0-9a-zA-Z_-]", "", reactives$subvar_alpha), "_")
         },
-        format(Sys.time(), "%Y_%m_%d"), ".txt") # Date of download
+        format(Sys.time(), "%Y_%m_%d"), # Date of download
+        if(input$download_format == "tab") ".txt" else ".csv") 
     }, 
     content = function(file) {
       write.table(
         data.frame(Sample_ID = rownames(reactives$alpha_diversity_download),
                    reactives$alpha_diversity_download), 
-        file = file, sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
+        file = file, sep = if(input$download_format == "tab") "\t" else ",", 
+        dec = ".", quote = FALSE, row.names = FALSE)
     }
   )
 
@@ -1546,13 +1638,15 @@ server <- function(input, output, session) {
         "MicrobIEM_Beta_diversity_",
         substr(reactives$plot_beta, 6, 9), "_", # nMDS or PCoA
         gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_beta), "_", # Variable name
-        format(Sys.time(), "%Y_%m_%d"), ".txt") # Date of download
+        format(Sys.time(), "%Y_%m_%d"), # Date of download
+        if(input$download_format == "tab") ".txt" else ".csv") 
     },
     content = function(file) {
       write.table(
         data.frame(Sample_ID = rownames(reactives$beta_diversity_download),
                    reactives$beta_diversity_download), 
-        file = file, sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
+        file = file, sep = if(input$download_format == "tab") "\t" else ",", 
+        dec = ".", quote = FALSE, row.names = FALSE)
     }
   )
 
@@ -1565,12 +1659,14 @@ server <- function(input, output, session) {
         "MicrobIEM_Taxonomy_",
         reactives$taxonomy_level, "_", # Taxonomic level
         gsub("[^0-9a-zA-Z_-]", "", reactives$metavar_taxonomy), "_", # Variable name
-        format(Sys.time(), "%Y_%m_%d"), ".txt") # Date of download
+        format(Sys.time(), "%Y_%m_%d"), # Date of download
+        if(input$download_format == "tab") ".txt" else ".csv") 
     },
     content = function(file) {
       write.table(
         select(reactives$taxonomy_download, -Row.names), 
-        file = file, sep = "\t", dec = ".", quote = FALSE, row.names = FALSE)
+        file = file, sep = if(input$download_format == "tab") "\t" else ",",
+        dec = ".", quote = FALSE, row.names = FALSE)
     }
   )
 }

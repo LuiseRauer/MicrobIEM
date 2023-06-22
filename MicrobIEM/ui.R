@@ -37,10 +37,12 @@ ui <- fluidPage(
   tags$div("Need help? Check out the ", 
            a("documentation", target = "_blank", 
              href = "https://github.com/LuiseRauer/MicrobIEM"), 
-           " and the ", 
-           a("example dataset", target = "_blank", 
+           " and the example dataset on ", 
+           a("Github", target = "_blank", 
              href = "https://github.com/LuiseRauer/MicrobIEM/tree/main/MicrobIEM/test-data"), 
-           "on Github."), 
+           "or the ",
+           a("OSF", target = "_blank", href = "https://osf.io/xvbef/"),
+           "platform."), 
   br(),
   useShinyjs(), # Use shinyjs package 
   
@@ -56,16 +58,25 @@ ui <- fluidPage(
           # --------------------------------------------------------------------
           # All input fields for data and filtering options
           # --------------------------------------------------------------------
+          
+          h4(tags$b("File upload"), id = "header_upload"),
+          
           # Uploading the meta file
           fileInput(inputId = "metafile", label = "Choose meta table",
                     accept = c("text/csv", 
                                "text/comma-separated-values,text/plain",
-                               ".csv")),
+                               ".csv", ".txt", ".tsv")),
           # Uploading the feature table
-          fileInput(inputId = "featurefile", label = "Choose feature table",
+          h5(tags$b("Choose feature table"), id = "header_feature_upload"),
+          radioButtons("feature_format", label = NULL,
+                       c("Text (.csv, .tsv, .txt)" = "text",
+                         "QIIME2 (.qza)" = "qiime2")),
+          fileInput(inputId = "featurefile", label = NULL,
                     accept = c("text/csv", 
                                "text/comma-separated-values,text/plain",
-                               ".csv")),
+                               ".csv", ".txt", ".tsv", ".qza")),
+          fileInput(inputId = "q2_taxonomy", label = "QIIME2 taxonomy file",
+                    accept = c("qza")),
           # Choose visualization type for filtering
           selectInput(inputId = "visualization_type",
                       label = "Visualization", 
