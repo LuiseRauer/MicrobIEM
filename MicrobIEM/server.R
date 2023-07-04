@@ -114,7 +114,7 @@ server <- function(input, output, session) {
     print(paste0("INFO - input in metafile - ", Sys.time()))
     metadata_ext <- tools::file_ext(input$metafile$datapath) 
     metadata_sep <- get.delim(input$metafile$datapath, n = 10, 
-                              delims = c("\t", "\t| +", " ", ",", ";"))
+                              delims = c("\t", "\t| +", ","))
     # Check correct file extension
     if (!(metadata_ext %in% c("csv", "tsv", "txt"))) {
       showModal(modalDialog(
@@ -157,7 +157,7 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$featurefile, {
     print(paste0("INFO - input in featurefile - ", Sys.time()))
-    featurefile_ext <- tools::file_ext(input$featurefile$datapath) 
+    featurefile_ext <- tools::file_ext(input$featurefile$datapath)
     # Check correct file extension
     if (!(featurefile_ext %in% c("csv", "tsv", "txt", "qza"))) {
       showModal(modalDialog(
@@ -168,10 +168,11 @@ server <- function(input, output, session) {
     } else if (featurefile_ext != "qza") {
       # Load csv/tsv/txt feature file
       featurefile_sep <- get.delim(input$featurefile$datapath, n = 10, 
-                                   delims = c("\t", "\t| +", " ", ",", ";"))
-      if(!featurefile_sep %in% c("\t", "\t| +", " ", ",")) {
+                                   delims = c("\t", "\t| +", ","))
+      print(featurefile_sep)
+      if(!featurefile_sep %in% c("\t", "\t| +", ",")) {
         showModal(modalDialog(
-          title = "Error 2a", "Please choose a tab-, comma-, or space-separated file."))
+          title = "Error 2a", "Please choose a tab- or comma-separated file."))
       } else {
         reactives$featuredata <- read.delim(input$featurefile$datapath, 
                                             sep = featurefile_sep, 
