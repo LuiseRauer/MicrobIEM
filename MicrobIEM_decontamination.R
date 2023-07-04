@@ -100,6 +100,10 @@ MicrobIEM_decontamination <- function(
   if(all(is.na(span_NEG1_threshold))) span_NEG1_threshold <- 0.0001
   if(all(is.na(span_NEG2_threshold))) span_NEG2_threshold <- 0.0001
   
+  # Round span filter
+  span_NEG1_threshold <- round(span_NEG1_threshold, 4)
+  span_NEG2_threshold <- round(span_NEG2_threshold, 4)
+  
   # Apply filter criteria and return Sample IDs that should be removed
   feature_removed_neg1 <- character(0)
   if(ratio_NEG1_threshold == Inf && span_NEG1_threshold != 0.0001) {
