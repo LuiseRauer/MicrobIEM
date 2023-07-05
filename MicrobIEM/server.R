@@ -169,7 +169,6 @@ server <- function(input, output, session) {
       # Load csv/tsv/txt feature file
       featurefile_sep <- get.delim(input$featurefile$datapath, n = 10, 
                                    delims = c("\t", "\t| +", ","))
-      print(featurefile_sep)
       if(!featurefile_sep %in% c("\t", "\t| +", ",")) {
         showModal(modalDialog(
           title = "Error 2a", "Please choose a tab- or comma-separated file."))
@@ -1285,8 +1284,8 @@ server <- function(input, output, session) {
     } else {
       set.seed(1)
       beta_diversity_pvalue <- 
-        signif(adonis(vegdist(Featuredata_freq, method = "bray") ~ 
-                 as.factor(beta_diversity_result[[reactives$metavar_beta]]))$aov.tab$'Pr(>F)'[1], 2)
+        signif(adonis2(vegdist(Featuredata_freq, method = "bray") ~ 
+                 as.factor(beta_diversity_result[[reactives$metavar_beta]]))$'Pr(>F)'[1], 2)
     }
     # Generate format for download
     reactives$beta_diversity_download <- beta_diversity_result
@@ -1362,21 +1361,21 @@ server <- function(input, output, session) {
     # Select top taxa per group or overall
     if(input$per_group_overall == "Overall") {
       top_taxa <- taxonomy_result %>%
-        select_if(is.numeric) %>%
+        select(where(is.numeric)) %>%
         colMeans() %>% 
         sort(decreasing = TRUE)
       top_taxa <- names(top_taxa[1:reactives$top_number_taxa])
     } else if (input$per_group_overall == "Per group") {
       top_taxa <- taxonomy_result %>%
         group_by(.data[[reactives$metavar_taxonomy]]) %>%
-        select_if(is.numeric) %>%
+        select(where(is.numeric)) %>%
         group_map(~ names(sort(.x, decreasing = TRUE)[1:reactives$top_number_taxa]))
       top_taxa <- unique(unlist(top_taxa))
     }
     # Summarise other taxa into "Others"
     top_taxa <- sort(top_taxa)
     taxonomy_others <- taxonomy_result %>% 
-      select_if(is.numeric) %>%
+      select(where(is.numeric)) %>%
       select(-all_of(top_taxa)) %>%
       rowSums() %>% 
       data.frame
