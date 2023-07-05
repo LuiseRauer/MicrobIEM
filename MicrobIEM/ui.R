@@ -8,12 +8,13 @@
 # Install and load required packages 
 # ------------------------------------------------------------------------------
 # Install packages
-packages_ui <- c("shinyjs", "DT", "plotly")
+packages_ui <- c("shinyjs", "DT", "plotly", "shinydisconnect")
 install.packages(setdiff(packages_ui, rownames(installed.packages())))
 # Load packages
 library(shinyjs)
 library(DT)
 library(plotly)
+library(shinydisconnect)
 
 # ------------------------------------------------------------------------------
 # Define re-used parameters
@@ -32,6 +33,9 @@ options(shiny.maxRequestSize = 1000*1024^2)
 # UI main function
 # ------------------------------------------------------------------------------
 ui <- fluidPage(
+  # Disconnect message
+  disconnectMessage(text = "An error occurred. There may be too many users in parallel, or your dataset may be too large. Please wait a few minutes until you refresh the page and try again."),
+
   # Application title
   titlePanel("MicrobIEM v0.7"),
   tags$div("Need help? Check out the ", 

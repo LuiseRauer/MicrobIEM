@@ -10,7 +10,7 @@
 # Install packages
 packages_server <- c("shinyjs", "DT", "plotly", "shinyWidgets",
                      "dplyr", "reshape2", "ggplot2", "vegan", "reader",
-                     "devtools")
+                     "devtools", "shinydisconnect")
 install.packages(setdiff(packages_server, rownames(installed.packages())))
 
 # Load packages
@@ -23,6 +23,7 @@ library(reshape2)
 library(plotly)
 library(DT)
 library(reader) # get.delim
+library(shinydisconnect)
 
 # Install qiime2R package from Github
 if (!requireNamespace("BiocManager", quietly = TRUE))
