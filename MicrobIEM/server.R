@@ -555,25 +555,37 @@ server <- function(input, output, session) {
       # ------------------------------------------------------------------------
       # Create overview file for filter settings
       # ------------------------------------------------------------------------
-      reactives$download_filtersettings <- paste0(c(
-        "MicrobIEM - quality control and analysis tool for microbiome data",
-        "-----------------------------------------------------------------",
-        "", "Input meta table:", input$metafile$name,
-        "", "Input feature table:", input$featurefile$name,
-        "", "Minimum reads per sample:", input$req_reads_per_sample,
-        "", "Minimum reads per feature:", input$req_reads_per_feature,
-        "", "Minimum relative frequency per feature:", input$req_ratio_per_feature,
-        "", "Frequency mean ratio (NEG1 by SAMPLE):", 
-        names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg1]),
-        "", "Span threshold (NEG1):", 
-        names(reactives$neg1_span_steps[reactives$neg1_span_steps == 
-                                          reactives$req_span_neg1]),
-        "", "Frequency mean ratio (NEG2 by SAMPLE):", 
-        names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg2]),
-        "", "Span threshold (NEG2):", 
-        names(reactives$neg2_span_steps[reactives$neg2_span_steps == 
-                                          reactives$req_span_neg2])), 
-        sep = " ")
+      reactives$download_filtersettings <- paste0(
+        c(
+          "MicrobIEM - quality control and analysis tool for microbiome data",
+          "-----------------------------------------------------------------",
+          "", "USER-SELECTED DATA AND FILTERS",
+          "", "Input meta table:", input$metafile$name,
+          "", "Input feature table:", input$featurefile$name,
+          "", "Minimum reads per sample:", input$req_reads_per_sample,
+          "", "Minimum reads per feature:", input$req_reads_per_feature,
+          "", "Minimum relative frequency per feature:", input$req_ratio_per_feature,
+          "", "Frequency mean ratio (NEG1 by SAMPLE):", 
+          names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg1]),
+          "", "Span threshold (NEG1):", 
+          names(reactives$neg1_span_steps[reactives$neg1_span_steps == 
+                                            reactives$req_span_neg1]),
+          "", "Frequency mean ratio (NEG2 by SAMPLE):", 
+          names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg2]),
+          "", "Span threshold (NEG2):", 
+          names(reactives$neg2_span_steps[reactives$neg2_span_steps == 
+                                            reactives$req_span_neg2]),
+          "",
+          "-----------------------------------------------------------------",
+          "", "CITATION INFORMATION",
+          "", "MicrobIEM (version 0.7):",
+          "Hülpüsch C & Rauer L, Nussbaumer T, Schwierzeck V, Bhattacharyya M, Erhart V, Traidl-Hoffmann C, Reiger M & Neumann AU (2021). MicrobIEM - A user-friendly tool for quality control and interactive analysis of microbiome data. https://github.com/LuiseRauer/MicrobIEM",
+          "", "PACKAGES", "",
+          sapply(packages_server, function(x) 
+            paste0(x, " (version ", 
+                   packageVersion(x), "): \n", 
+                   citation(x)$'textVersion', "\n"))
+        ), sep = " ")
       
       # ------------------------------------------------------------------------
       # Create files for quality control
@@ -1040,8 +1052,8 @@ server <- function(input, output, session) {
             downloadButton("download_feature_rel", "Final feature file (rel. abundance)"),
             downloadButton("download_metafile", "Final metafile"),
             br(), br(),
-            h5(tags$b("Final filter settings:")),
-            downloadButton("download_filtersettings", "Filter settings (.txt)"),
+            h5(tags$b("Final filter settings and citation information:")),
+            downloadButton("download_filtersettings", "Data information (.txt)"),
             br(), br(),
             h5(tags$b("Files for quality control:")),
             downloadButton("download_contbasis", "Basis for contamination filtering"),
@@ -1521,7 +1533,7 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   output$download_filtersettings <- downloadHandler(
     filename = function() {
-      paste0("MicrobIEM_Filter_settings_", 
+      paste0("MicrobIEM_Filter_citation_info_", 
              format(Sys.time(), "%Y_%m_%d"), ".txt")
     },
     content = function(file) {
