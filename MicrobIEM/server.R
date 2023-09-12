@@ -718,13 +718,39 @@ server <- function(input, output, session) {
         ggplotly(abundance_plot, tooltip = "text")
       }) 
     }
-    if(input$visualization_type == "Contamination removal - NEG1" ||
-       input$visualization_type == "Contamination removal - NEG2") {
+    if(input$visualization_type == "Reduction of total reads") {
+      sum_of_reads_function <- function(x) {
+        if(is.na(x)) {return(NA)} else {return(sum(colSums(x)))}
+      }
+      data_to_plot <- data.frame(
+        Step = c("0 - original", "1 - without controls", "2 - sample filter",
+                 "3 - feature abundance filter", "4 - feature frequency filter",
+                 "5 - contamination filter"),
+        Reads = c(sum_of_reads_function(reactives$featuredata),
+                  sum_of_reads_function(reactives$featuredata_1),
+                  sum_of_reads_function(reactives$featuredata_2),
+                  sum_of_reads_function(reactives$featuredata_3),
+                  sum_of_reads_function(reactives$featuredata_4),
+                  sum_of_reads_function(reactives$featuredata_5)))
+      reduction_of_reads <- 
+        ggplot(data = data_to_plot, aes(x = Step, y = Reads, fill = Step)) +
+        geom_bar(aes(text = paste("step:", Step,
+                                  "\nreads:", Reads)), stat = "identity") +
+        scale_fill_manual(values = c("#E3F0F7", "#C4E3F4", "#A4D6F2", "#85C8EF",
+                                     "#65BBEC", "#2FA4E7")) +
+        scale_x_discrete(labels = c("0", "1", "2", "3", "4", "5")) +
+        plot_theme
+      output$plot <- renderPlotly({
+        ggplotly(reduction_of_reads, tooltip = "text")
+      }) 
+    }
+    if(input$visualization_type == "Contamination removal - NEG1 (step 5)" ||
+       input$visualization_type == "Contamination removal - NEG2 (step 5)") {
       if(reactives$step_var < 5) {
         showModal(modalDialog(title = "Warning 1", paste0(
         "The plot for contamination removal is only available at step 5. You are 
         currently at step ", reactives$step_var, ". Please dismiss this message 
-        and proceed with your analysis by clicking the Next-button.")))
+        and continue with your analysis at the current step or proceed by clicking the Next-button.")))
         updateSelectInput(session, inputId = "visualization_type",
                           selected = "Correlation of reads and features")
       } else {
@@ -791,32 +817,6 @@ server <- function(input, output, session) {
           })          
         }
       }
-    }
-    if(input$visualization_type == "Reduction of total reads") {
-      sum_of_reads_function <- function(x) {
-        if(is.na(x)) {return(NA)} else {return(sum(colSums(x)))}
-      }
-      data_to_plot <- data.frame(
-        Step = c("0 - original", "1 - without controls", "2 - sample filter",
-                 "3 - feature abundance filter", "4 - feature frequency filter",
-                 "5 - contamination filter"),
-        Reads = c(sum_of_reads_function(reactives$featuredata),
-                  sum_of_reads_function(reactives$featuredata_1),
-                  sum_of_reads_function(reactives$featuredata_2),
-                  sum_of_reads_function(reactives$featuredata_3),
-                  sum_of_reads_function(reactives$featuredata_4),
-                  sum_of_reads_function(reactives$featuredata_5)))
-      reduction_of_reads <- 
-        ggplot(data = data_to_plot, aes(x = Step, y = Reads, fill = Step)) +
-        geom_bar(aes(text = paste("step:", Step,
-                                  "\nreads:", Reads)), stat = "identity") +
-        scale_fill_manual(values = c("#E3F0F7", "#C4E3F4", "#A4D6F2", "#85C8EF",
-                                     "#65BBEC", "#2FA4E7")) +
-        scale_x_discrete(labels = c("0", "1", "2", "3", "4", "5")) +
-        plot_theme
-      output$plot <- renderPlotly({
-        ggplotly(reduction_of_reads, tooltip = "text")
-      }) 
     }
     # Save current input:
     reactives$req_reads_per_sample_old <- input$req_reads_per_sample

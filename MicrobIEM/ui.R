@@ -63,7 +63,7 @@ ui <- fluidPage(
           # All input fields for data and filtering options
           # --------------------------------------------------------------------
           
-          h4(tags$b("File upload"), id = "header_upload"),
+          h4(tags$b("1) File upload"), id = "header_upload"),
           
           # Uploading the meta file
           fileInput(inputId = "metafile", label = "Choose meta table",
@@ -86,30 +86,30 @@ ui <- fluidPage(
                       label = "Visualization", 
                       choices = c("Correlation of reads and features",
                                   "Change in feature abundance",
-                                  "Contamination removal - NEG1",
-                                  "Contamination removal - NEG2",
-                                  "Reduction of total reads"),
+                                  "Reduction of total reads",
+                                  "Contamination removal - NEG1 (step 5)",
+                                  "Contamination removal - NEG2 (step 5)"),
                       selected = "Correlation of reads and features"),
           # Choose parameters for sample filter
           textInput(inputId = "req_reads_per_sample",
-                    label = "Minimum reads per sample",
+                    label = "2) Minimum reads per sample",
                     value = "1"),
           # Choose parameters for feature abundance filter
           textInput(inputId = "req_reads_per_feature",
-                    label = "Minimum reads per feature",
+                    label = "3) Minimum reads per feature",
                     value = "1"),
           # Choose parameters for feature relative frequency filter
           numericInput(inputId = "req_ratio_per_feature",
-                       label = "Minimum relative frequency per feature",
+                       label = "4) Minimum relative frequency per feature",
                        value = 0, min = 0, max = 1, step = 0.0005),
           # Choose parameters for contamination filter - NEG1
-          h4(tags$b("Contaminant filter based on NEG1"), id = "header_neg1"), 
+          h4(tags$b("5a) Contaminant filter based on NEG1"), id = "header_neg1"), 
           selectInput(inputId = "req_ratio_neg1",
                       label = "Frequency mean ratio (NEG1/SAMPLE)",		
                       choices = neg_ratio_steps),
           tags$div(id = "placeholder_span_1"),
           # Choose parameters for contamination filter - NEG2
-          h4(tags$b("Contaminant filter based on NEG2"), id = "header_neg2"), 
+          h4(tags$b("5b) Contaminant filter based on NEG2"), id = "header_neg2"), 
           selectInput(inputId = "req_ratio_neg2",
                       label = "Frequency mean ratio (NEG2/SAMPLE)",		
                       choices = neg_ratio_steps),
