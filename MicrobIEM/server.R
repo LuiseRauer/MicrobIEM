@@ -1414,6 +1414,7 @@ server <- function(input, output, session) {
                                 fill = Taxonomy)) +
       geom_bar(position = "fill", stat = "identity") + 
       plot_theme +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
       ylab("Relative abundance") +
       scale_y_continuous(expand = c(0, 0)) +
       xlab(reactives$metavar_taxonomy)
