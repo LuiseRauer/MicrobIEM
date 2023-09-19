@@ -10,7 +10,7 @@
 # Install packages
 packages_server <- c("shinyjs", "DT", "plotly", "shinyWidgets",
                      "dplyr", "reshape2", "ggplot2", "vegan", "reader",
-                     "devtools")
+                     "devtools", "shinydisconnect")
 install.packages(setdiff(packages_server, rownames(installed.packages())))
 
 # Load packages
@@ -23,6 +23,7 @@ library(reshape2)
 library(plotly)
 library(DT)
 library(reader) # get.delim
+library(shinydisconnect)
 
 # Install qiime2R package from Github
 if (!requireNamespace("BiocManager", quietly = TRUE))
@@ -114,7 +115,7 @@ server <- function(input, output, session) {
     print(paste0("INFO - input in metafile - ", Sys.time()))
     metadata_ext <- tools::file_ext(input$metafile$datapath) 
     metadata_sep <- get.delim(input$metafile$datapath, n = 10, 
-                              delims = c("\t", "\t| +", " ", ",", ";"))
+                              delims = c("\t", "\t| +", ","))
     # Check correct file extension
     if (!(metadata_ext %in% c("csv", "tsv", "txt"))) {
       showModal(modalDialog(
@@ -157,7 +158,7 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   observeEvent(input$featurefile, {
     print(paste0("INFO - input in featurefile - ", Sys.time()))
-    featurefile_ext <- tools::file_ext(input$featurefile$datapath) 
+    featurefile_ext <- tools::file_ext(input$featurefile$datapath)
     # Check correct file extension
     if (!(featurefile_ext %in% c("csv", "tsv", "txt", "qza"))) {
       showModal(modalDialog(
@@ -168,10 +169,10 @@ server <- function(input, output, session) {
     } else if (featurefile_ext != "qza") {
       # Load csv/tsv/txt feature file
       featurefile_sep <- get.delim(input$featurefile$datapath, n = 10, 
-                                   delims = c("\t", "\t| +", " ", ",", ";"))
-      if(!featurefile_sep %in% c("\t", "\t| +", " ", ",")) {
+                                   delims = c("\t", "\t| +", ","))
+      if(!featurefile_sep %in% c("\t", "\t| +", ",")) {
         showModal(modalDialog(
-          title = "Error 2a", "Please choose a tab-, comma-, or space-separated file."))
+          title = "Error 2a", "Please choose a tab- or comma-separated file."))
       } else {
         reactives$featuredata <- read.delim(input$featurefile$datapath, 
                                             sep = featurefile_sep, 
@@ -554,25 +555,37 @@ server <- function(input, output, session) {
       # ------------------------------------------------------------------------
       # Create overview file for filter settings
       # ------------------------------------------------------------------------
-      reactives$download_filtersettings <- paste0(c(
-        "MicrobIEM - quality control and analysis tool for microbiome data",
-        "-----------------------------------------------------------------",
-        "", "Input meta table:", input$metafile$name,
-        "", "Input feature table:", input$featurefile$name,
-        "", "Minimum reads per sample:", input$req_reads_per_sample,
-        "", "Minimum reads per feature:", input$req_reads_per_feature,
-        "", "Minimum relative frequency per feature:", input$req_ratio_per_feature,
-        "", "Frequency mean ratio (NEG1 by SAMPLE):", 
-        names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg1]),
-        "", "Span threshold (NEG1):", 
-        names(reactives$neg1_span_steps[reactives$neg1_span_steps == 
-                                          reactives$req_span_neg1]),
-        "", "Frequency mean ratio (NEG2 by SAMPLE):", 
-        names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg2]),
-        "", "Span threshold (NEG2):", 
-        names(reactives$neg2_span_steps[reactives$neg2_span_steps == 
-                                          reactives$req_span_neg2])), 
-        sep = " ")
+      reactives$download_filtersettings <- paste0(
+        c(
+          "MicrobIEM - quality control and analysis tool for microbiome data",
+          "-----------------------------------------------------------------",
+          "", "USER-SELECTED DATA AND FILTERS",
+          "", "Input meta table:", input$metafile$name,
+          "", "Input feature table:", input$featurefile$name,
+          "", "Minimum reads per sample:", input$req_reads_per_sample,
+          "", "Minimum reads per feature:", input$req_reads_per_feature,
+          "", "Minimum relative frequency per feature:", input$req_ratio_per_feature,
+          "", "Frequency mean ratio (NEG1 by SAMPLE):", 
+          names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg1]),
+          "", "Span threshold (NEG1):", 
+          names(reactives$neg1_span_steps[reactives$neg1_span_steps == 
+                                            reactives$req_span_neg1]),
+          "", "Frequency mean ratio (NEG2 by SAMPLE):", 
+          names(neg_ratio_steps[neg_ratio_steps == input$req_ratio_neg2]),
+          "", "Span threshold (NEG2):", 
+          names(reactives$neg2_span_steps[reactives$neg2_span_steps == 
+                                            reactives$req_span_neg2]),
+          "",
+          "-----------------------------------------------------------------",
+          "", "CITATION INFORMATION",
+          "", "MicrobIEM (version 0.7):",
+          "Hülpüsch C & Rauer L, Nussbaumer T, Schwierzeck V, Bhattacharyya M, Erhart V, Traidl-Hoffmann C, Reiger M & Neumann AU (2021). MicrobIEM - A user-friendly tool for quality control and interactive analysis of microbiome data. https://github.com/LuiseRauer/MicrobIEM",
+          "", "PACKAGES", "",
+          sapply(packages_server, function(x) 
+            paste0(x, " (version ", 
+                   packageVersion(x), "): \n", 
+                   citation(x)$'textVersion', "\n"))
+        ), sep = " ")
       
       # ------------------------------------------------------------------------
       # Create files for quality control
@@ -717,13 +730,39 @@ server <- function(input, output, session) {
         ggplotly(abundance_plot, tooltip = "text")
       }) 
     }
-    if(input$visualization_type == "Contamination removal - NEG1" ||
-       input$visualization_type == "Contamination removal - NEG2") {
+    if(input$visualization_type == "Reduction of total reads") {
+      sum_of_reads_function <- function(x) {
+        if(is.na(x)) {return(NA)} else {return(sum(colSums(x)))}
+      }
+      data_to_plot <- data.frame(
+        Step = c("0 - original", "1 - without controls", "2 - sample filter",
+                 "3 - feature abundance filter", "4 - feature frequency filter",
+                 "5 - contamination filter"),
+        Reads = c(sum_of_reads_function(reactives$featuredata),
+                  sum_of_reads_function(reactives$featuredata_1),
+                  sum_of_reads_function(reactives$featuredata_2),
+                  sum_of_reads_function(reactives$featuredata_3),
+                  sum_of_reads_function(reactives$featuredata_4),
+                  sum_of_reads_function(reactives$featuredata_5)))
+      reduction_of_reads <- 
+        ggplot(data = data_to_plot, aes(x = Step, y = Reads, fill = Step)) +
+        geom_bar(aes(text = paste("step:", Step,
+                                  "\nreads:", Reads)), stat = "identity") +
+        scale_fill_manual(values = c("#E3F0F7", "#C4E3F4", "#A4D6F2", "#85C8EF",
+                                     "#65BBEC", "#2FA4E7")) +
+        scale_x_discrete(labels = c("0", "1", "2", "3", "4", "5")) +
+        plot_theme
+      output$plot <- renderPlotly({
+        ggplotly(reduction_of_reads, tooltip = "text")
+      }) 
+    }
+    if(input$visualization_type == "Contamination removal - NEG1 (step 5)" ||
+       input$visualization_type == "Contamination removal - NEG2 (step 5)") {
       if(reactives$step_var < 5) {
         showModal(modalDialog(title = "Warning 1", paste0(
         "The plot for contamination removal is only available at step 5. You are 
         currently at step ", reactives$step_var, ". Please dismiss this message 
-        and proceed with your analysis by clicking the Next-button.")))
+        and continue with your analysis at the current step or proceed by clicking the Next-button.")))
         updateSelectInput(session, inputId = "visualization_type",
                           selected = "Correlation of reads and features")
       } else {
@@ -790,32 +829,6 @@ server <- function(input, output, session) {
           })          
         }
       }
-    }
-    if(input$visualization_type == "Reduction of total reads") {
-      sum_of_reads_function <- function(x) {
-        if(is.na(x)) {return(NA)} else {return(sum(colSums(x)))}
-      }
-      data_to_plot <- data.frame(
-        Step = c("0 - original", "1 - without controls", "2 - sample filter",
-                 "3 - feature abundance filter", "4 - feature frequency filter",
-                 "5 - contamination filter"),
-        Reads = c(sum_of_reads_function(reactives$featuredata),
-                  sum_of_reads_function(reactives$featuredata_1),
-                  sum_of_reads_function(reactives$featuredata_2),
-                  sum_of_reads_function(reactives$featuredata_3),
-                  sum_of_reads_function(reactives$featuredata_4),
-                  sum_of_reads_function(reactives$featuredata_5)))
-      reduction_of_reads <- 
-        ggplot(data = data_to_plot, aes(x = Step, y = Reads, fill = Step)) +
-        geom_bar(aes(text = paste("step:", Step,
-                                  "\nreads:", Reads)), stat = "identity") +
-        scale_fill_manual(values = c("#E3F0F7", "#C4E3F4", "#A4D6F2", "#85C8EF",
-                                     "#65BBEC", "#2FA4E7")) +
-        scale_x_discrete(labels = c("0", "1", "2", "3", "4", "5")) +
-        plot_theme
-      output$plot <- renderPlotly({
-        ggplotly(reduction_of_reads, tooltip = "text")
-      }) 
     }
     # Save current input:
     reactives$req_reads_per_sample_old <- input$req_reads_per_sample
@@ -1039,8 +1052,8 @@ server <- function(input, output, session) {
             downloadButton("download_feature_rel", "Final feature file (rel. abundance)"),
             downloadButton("download_metafile", "Final metafile"),
             br(), br(),
-            h5(tags$b("Final filter settings:")),
-            downloadButton("download_filtersettings", "Filter settings (.txt)"),
+            h5(tags$b("Final filter settings and citation information:")),
+            downloadButton("download_filtersettings", "Data information (.txt)"),
             br(), br(),
             h5(tags$b("Files for quality control:")),
             downloadButton("download_contbasis", "Basis for contamination filtering"),
@@ -1284,8 +1297,8 @@ server <- function(input, output, session) {
     } else {
       set.seed(1)
       beta_diversity_pvalue <- 
-        signif(adonis(vegdist(Featuredata_freq, method = "bray") ~ 
-                 as.factor(beta_diversity_result[[reactives$metavar_beta]]))$aov.tab$'Pr(>F)'[1], 2)
+        signif(adonis2(vegdist(Featuredata_freq, method = "bray") ~ 
+                 as.factor(beta_diversity_result[[reactives$metavar_beta]]))$'Pr(>F)'[1], 2)
     }
     # Generate format for download
     reactives$beta_diversity_download <- beta_diversity_result
@@ -1361,21 +1374,21 @@ server <- function(input, output, session) {
     # Select top taxa per group or overall
     if(input$per_group_overall == "Overall") {
       top_taxa <- taxonomy_result %>%
-        select_if(is.numeric) %>%
+        select(where(is.numeric)) %>%
         colMeans() %>% 
         sort(decreasing = TRUE)
       top_taxa <- names(top_taxa[1:reactives$top_number_taxa])
     } else if (input$per_group_overall == "Per group") {
       top_taxa <- taxonomy_result %>%
         group_by(.data[[reactives$metavar_taxonomy]]) %>%
-        select_if(is.numeric) %>%
+        select(where(is.numeric)) %>%
         group_map(~ names(sort(.x, decreasing = TRUE)[1:reactives$top_number_taxa]))
       top_taxa <- unique(unlist(top_taxa))
     }
     # Summarise other taxa into "Others"
     top_taxa <- sort(top_taxa)
     taxonomy_others <- taxonomy_result %>% 
-      select_if(is.numeric) %>%
+      select(where(is.numeric)) %>%
       select(-all_of(top_taxa)) %>%
       rowSums() %>% 
       data.frame
@@ -1401,6 +1414,7 @@ server <- function(input, output, session) {
                                 fill = Taxonomy)) +
       geom_bar(position = "fill", stat = "identity") + 
       plot_theme +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
       ylab("Relative abundance") +
       scale_y_continuous(expand = c(0, 0)) +
       xlab(reactives$metavar_taxonomy)
@@ -1520,7 +1534,7 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------------
   output$download_filtersettings <- downloadHandler(
     filename = function() {
-      paste0("MicrobIEM_Filter_settings_", 
+      paste0("MicrobIEM_Filter_citation_info_", 
              format(Sys.time(), "%Y_%m_%d"), ".txt")
     },
     content = function(file) {
