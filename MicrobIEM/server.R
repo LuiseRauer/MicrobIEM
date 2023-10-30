@@ -732,7 +732,7 @@ server <- function(input, output, session) {
     }
     if(input$visualization_type == "Reduction of total reads") {
       sum_of_reads_function <- function(x) {
-        if(is.na(x)) {return(NA)} else {return(sum(colSums(x)))}
+        if(sum(is.na(x))>0) {return(NA)} else {return(sum(colSums(x)))}
       }
       data_to_plot <- data.frame(
         Step = c("0 - original", "1 - without controls", "2 - sample filter",
@@ -766,7 +766,7 @@ server <- function(input, output, session) {
         updateSelectInput(session, inputId = "visualization_type",
                           selected = "Correlation of reads and features")
       } else {
-        if(input$visualization_type == "Contamination removal - NEG1") {
+        if(input$visualization_type == "Contamination removal - NEG1 (step 5)") {
           req_span_neg1 <- reactives$req_span_neg1
           req_ratio_neg1 <- input$req_ratio_neg1
           contamination_plot <- 
@@ -797,7 +797,7 @@ server <- function(input, output, session) {
             ggplotly(contamination_plot, tooltip = "text")
           })
         }
-        if(input$visualization_type == "Contamination removal - NEG2") {
+        if(input$visualization_type == "Contamination removal - NEG2 (step 5)") {
           req_span_neg2 <- reactives$req_span_neg2
           req_ratio_neg2 <- input$req_ratio_neg2
           contamination_plot <- 
@@ -1239,7 +1239,21 @@ server <- function(input, output, session) {
     }
     # Output plot, empty line and p-value table
     output$plot <- renderPlotly({
-      ggplotly(alpha_diversity_plot, tooltip = "text")
+      # Function for longer plot strips
+      facet_strip_bigger <- function(gp){
+        # n_facets should be the number of facets x2
+        n_facets <- c(1:length(gp[["x"]][["layout"]][["shapes"]]))
+        for(i in n_facets){
+          if(n_facets[i] %% 2 == 0){
+            gp[["x"]][["layout"]][["shapes"]][[i]][["y0"]] <- + 30 # increase as needed
+            gp[["x"]][["layout"]][["shapes"]][[i]][["y1"]] <- 0
+          }
+        }
+        return(gp)
+      }
+      # Actual plot
+      ggplotly(alpha_diversity_plot, tooltip = "text") %>%
+        facet_strip_bigger()
     })
     output$text <- renderText({""})
     output$table <- DT::renderDataTable({alpha_diversity_table})
