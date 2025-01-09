@@ -325,6 +325,9 @@ server <- function(input, output, session) {
       # Replace NA and empty values
       reactives$taxonomy_data[is.na(reactives$taxonomy_data)] <- "No_annotation"
       reactives$taxonomy_data[reactives$taxonomy_data == ""] <- "No_annotation"
+      # Prevent a bug when no taxonomy is given at all
+      reactives$taxonomy_data$Domain[reactives$taxonomy_data$Domain == "No_annotation"] <- 
+        "No_taxonomy"
       
       # ------------------------------------------------------------------------
       # Proceed one step and start the filtering 
